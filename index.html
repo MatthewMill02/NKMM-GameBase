@@ -1,39 +1,40 @@
 <body>
-    <!-- 🔑 PANEL LOGOWANIA (WIDOCZNY NA START) -->
-    <div id="loginContainer" style="max-width: 400px; margin: 100px auto; padding: 20px; border: 1px solid #ddd; background: #fff; border-radius: 8px; text-align: center;">
-        <h2>🔑 Baza Gier NKMM</h2>
-        <p>Wprowadź tajne hasło dostępu, aby odblokować panel administracyjny:</p>
-        <form id="loginForm">
-            <input type="password" id="sitePassword" placeholder="Hasło dostępowe" required style="width: 80%; padding: 10px; margin-bottom: 10px; border: 1px solid #ccc; border-radius: 4px;">
-            <br>
-            <button type="submit" style="width: 85%; padding: 10px; background: #2c3e50; color: white; border: none; border-radius: 4px; cursor: pointer;">Zaloguj się</button>
+    <!-- 🔑 PANEL AUTORYZACJI ADMINA (NA GÓRZE STRONY) -->
+    <div id="loginContainer" style="padding: 10px; border-bottom: 2px solid #ddd; background: #fff; margin-bottom: 20px; display: flex; align-items: center; justify-content: space-between;">
+        <span style="font-weight: bold; font-family: sans-serif;">🔒 Panel Administratora (Zapis/Edycja):</span>
+        <form id="loginForm" style="margin: 0; padding: 0; border: none; background: transparent;">
+            <input type="password" id="sitePassword" placeholder="Wpisz hasło admina" required style="padding: 5px; border: 1px solid #ccc; border-radius: 4px;">
+            <button type="submit" style="padding: 5px 15px; margin: 0 5px; background: #2c3e50; color: white; border: none; border-radius: 4px; cursor: pointer;">Odblokuj zapis</button>
         </form>
-        <div id="loginError" style="color: red; margin-top: 10px; font-weight: bold; font-family: monospace;"></div>
+        <span id="loginError" style="color: red; font-weight: bold; font-family: monospace; font-size: 12px;"></span>
     </div>
 
-    <!-- 🎮 GŁÓWNA ZAWARTOŚĆ APLIKACJI (UKRYTA PRZED LOGOWANIEM) -->
-    <div id="appContainer" style="display: none;">
-        <h1>🎮 Panel Testowy Bazy Gier</h1>
+    <!-- 🌐 SEKCJA PUBLICZNA (WIDOCZNA DLA KAŻDEGO OD RAZU) -->
+    <h1>🎮 Publiczna Przeglądarka Gier NKMM</h1>
+    
+    <div class="user-selector">
+        <label>Wybierz profil do podejrzenia biblioteki:</label>
+        <select id="userSelect">
+            <option value="Baza gier MM">MM (Matthew)</option>
+            <option value="Baza gier NK">NK (Przyjaciel)</option>
+        </select>
+    </div>
+
+    <hr>
+
+    <h2>1. Pobieranie i Wyświetlanie Zbiorów</h2>
+    <button id="btnFetchGames">Pobierz Wszystkie Gry</button>
+    
+    <div id="outputConsole" class="console">Konsola testowa: oczekiwanie na pobranie danych gier...</div>
+
+    <!-- 🛠️ STREFA ADMINISTRATORA (UKRYTA DLA ZWYKŁYCH GOŚCI NA START) -->
+    <div id="adminZone" style="display: none;">
+        <hr style="border: 2px solid #2c3e50;">
+        <h2 style="color: #c0392b;">🛠️ Narzędzia Panelu Administracyjnego</h2>
         
-        <div class="user-selector">
-            <label>Użytkownik:</label>
-            <select id="userSelect">
-                <option value="Baza gier MM">MM (Matthew)</option>
-                <option value="Baza gier NK">NK (Przyjaciel)</option>
-            </select>
-        </div>
-
-        <hr>
-
-        <h2>1. Pobieranie Danych</h2>
-        <button id="btnFetchGames">Pobierz Wszystkie Gry</button>
-        <button id="btnFetchSettings">Pobierz Ustawienia</button>
+        <button id="btnFetchSettings">Pobierz Słowniki Ustawień</button>
         
-        <div id="outputConsole" class="console">Konsola testowa: oczekiwanie na akcję...</div>
-
-        <hr>
-
-        <h2>2. Dodaj / Edytuj Grę</h2>
+        <h3>2. Dodaj / Edytuj Grę w Arkuszu</h3>
         <form id="gameForm">
             <input type="hidden" id="gameId">
             
@@ -55,13 +56,13 @@
             <label>Kolekcje / Tagi:</label>
             <input type="text" id="gameCollections"><br>
 
-            <button type="submit" id="btnSubmitGame">Zapisz Grę (Dodaj/Edytuj)</button>
+            <button type="submit" id="btnSubmitGame">Zapisz Grę (Modyfikacja w chmurze)</button>
             <button type="button" id="btnResetForm" style="display:none;">Anuluj Edycję</button>
         </form>
 
         <hr>
 
-        <h2>3. Szybkie Zarządzanie Słownikami</h2>
+        <h3>3. Szybkie Zarządzanie Słownikami</h3>
         <div class="settings-test">
             <select id="settingsColumn">
                 <option value="Stan">Stan</option>

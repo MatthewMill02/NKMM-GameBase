@@ -1,15 +1,15 @@
 const googleScriptUrl = "https://script.google.com/macros/s/AKfycbyp3D2WaBoWCZ-qwAlZoLu3zURZALiLulPrTlUXtn94_Y2eJpgxylb9Ceo8HtdGi-F8/exec";
 
-// Elementy panelu logowania
+// Elementy panelu logowania z poziomu paska górnego
 const loginContainer = document.getElementById('loginContainer');
 const loginForm = document.getElementById('loginForm');
 const sitePasswordInput = document.getElementById('sitePassword');
 const loginError = document.getElementById('loginError');
 
-// Główny kontener aplikacji (zawartość ukryta na start)
-const appContainer = document.getElementById('appContainer');
+// Ukryte strefy dla administratorów (Hasło wymagane)
+const adminZone = document.getElementById('adminZone');
 
-// Zmienna przechowująca wpisane hasło podczas sesji
+// Zmienna sesyjna na poprawne hasło
 let currentSessionPassword = "";
 
 // Referencje DOM dla aplikacji
@@ -27,38 +27,34 @@ const gameReviewField = document.getElementById('gameReview');
 const gameCollectionsField = document.getElementById('gameCollections');
 
 /**
- * Procedura zalogowania i weryfikacji hasła "w locie" na serwerze Google
+ * Procedura zalogowania administratora / edytora
  */
 loginForm.addEventListener('submit', async (e) => {
     e.preventDefault();
     const enteredPassword = sitePasswordInput.value;
-    loginError.textContent = "Weryfikacja hasła... ⏳";
+    loginError.textContent = "Weryfikacja... ⏳";
 
-    // Wykonujemy testowy strzał (próbujemy pobrać ustawienia z tym hasłem)
-    // Jeśli hasło jest złe, backend zwróci status "error"
+    // Sprawdzamy czy hasło pasuje, próbując pobrać słowniki (akcja admina)
     const result = await sendApiRequestWithCustomPassword({ action: "getSettings" }, enteredPassword);
 
     if (result.status === "success") {
-        currentSessionPassword = enteredPassword; // Zapisujemy poprawne hasło
-        loginContainer.style.display = "none";    // Ukrywamy panel logowania
-        appContainer.style.display = "block";    // Pokazujemy pełną aplikację
-        logToConsole("Autoryzacja pomyślna. Witaj w bazie gier!");
+        currentSessionPassword = enteredPassword; 
+        loginContainer.innerHTML = "<p style='color:green; font-weight:bold; margin:0;'>🔐 Zalogowano pomyślnie jako Administrator.</p>";
+        adminZone.style.display = "block"; // Odkrywamy panele zapisu i słowników!
+        logToConsole("Tryb edycji aktywny. Masz pełny dostęp do zapisu.");
     } else {
-        loginError.textContent = "🛑 Niepoprawne hasło dostępu! Spróbuj ponownie.";
+        loginError.textContent = "🛑 Błędne hasło admina!";
         sitePasswordInput.value = "";
     }
 });
 
 /**
- * Silnik żądań JSONP przesyłający aktualne hasło sesyjne
+ * Główny przekaźnik żądań JSONP
  */
 function sendApiRequest(params) {
     return sendApiRequestWithCustomPassword(params, currentSessionPassword);
 }
 
-/**
- * Pomocnicza funkcja realizująca niskopoziomowy strzał JSONP z przekazanym hasłem
- */
 function sendApiRequestWithCustomPassword(params, password) {
     return new Promise((resolve, reject) => {
         const callbackName = "jsonp_callback_" + Math.round(100000 * Math.random());
@@ -71,7 +67,7 @@ function sendApiRequestWithCustomPassword(params, password) {
 
         const queryParams = new URLSearchParams(params);
         queryParams.append("callback", callbackName);
-        queryParams.append("pass", password); // Przekazujemy klucz autoryzacji
+        queryParams.append("pass", password); // Dla pobierania gier pole to poleci jako puste ("")
 
         const script = document.createElement("script");
         script.src = googleScriptUrl + "?" + queryParams.toString();
@@ -93,9 +89,9 @@ function logToConsole(message, isHtml = false) {
     }
 }
 
-// [AKCJA]: POBIERANIE LISTY GIER UŻYTKOWNIKA
+// [PUBLICZNA AKCJA]: POBIERANIE LISTY GIER (BRAK WYMAGANEGO HASŁA)
 document.getElementById('btnFetchGames').addEventListener('click', async () => {
-    logToConsole("Pobieranie bazy gier z chmury Google (JSONP)... ⏳");
+    logToConsole("Pobieranie bazy gier z chmury Google (Publiczny odczyt)... ⏳");
     const result = await sendApiRequest({
         action: "getAllGames",
         user: userSelect.value
@@ -109,6 +105,7 @@ document.getElementById('btnFetchGames').addEventListener('click', async () => {
         
         let html = "<ul>";
         result.data.forEach(game => {
+            // Przyciski edycji/usuwania renderujemy, ale ich kliknięcie bez zalogowania rzuci błąd zabezpieczenia
             html += `<li>
                 <strong>${game['Tytuł'] || 'Brak tytułu'}</strong> (${game['Stan'] || 'Brak Stanu'} - ${game['Platforma'] || 'Brak platformy'}) | Ocena: ${game['Ocena gry'] || '-'}
                 <br><small>Niezmienne ID: ${game.id || 'BRAK'}</small>
@@ -125,14 +122,14 @@ document.getElementById('btnFetchGames').addEventListener('click', async () => {
     }
 });
 
-// [AKCJA]: POBIERANIE SŁOWNIKÓW SŁUŻBOWYCH
+// [ADMIN AKCJA]: POBIERANIE SŁOWNIKÓW SŁUŻBOWYCH
 document.getElementById('btnFetchSettings').addEventListener('click', async () => {
     logToConsole("Pobieranie tabel konfiguracji... ⏳");
     const result = await sendApiRequest({ action: "getSettings" });
     logToConsole(result);
 });
 
-// [AKCJA]: ZAPIS FORMULARZA (NOWY WPIS LUB EDYCJA PO ID)
+// [ADMIN AKCJA]: ZAPIS FORMULARZA (NOWY WPIS LUB EDYCJA PO ID)
 gameForm.addEventListener('submit', async (e) => {
     e.preventDefault();
     logToConsole("Synchronizacja danych z serwerem Google... ⏳");
@@ -165,6 +162,10 @@ gameForm.addEventListener('submit', async (e) => {
 });
 
 window.prepareEditGame = function(game) {
+    if(!currentSessionPassword) {
+        alert("🛑 Tryb Read-Only! Aby modyfikować bazę, zaloguj się na górze strony podając hasło administratora.");
+        return;
+    }
     gameIdField.value = game.id || "";
     gameTitleField.value = game['Tytuł'] || "";
     gameStatusField.value = game['Stan'] || "";
@@ -178,6 +179,10 @@ window.prepareEditGame = function(game) {
 };
 
 window.triggerDeleteGame = async function(id) {
+    if(!currentSessionPassword) {
+        alert("🛑 Tryb Read-Only! Brak uprawnień do usuwania wpisów. Zaloguj się.");
+        return;
+    }
     if (!id || id === "undefined") {
         alert("Ta pozycja nie posiada przypisanego unikalnego ID w arkuszu.");
         return;
