@@ -1,6 +1,18 @@
 const googleScriptUrl = "https://script.google.com/macros/s/AKfycbyp3D2WaBoWCZ-qwAlZoLu3zURZALiLulPrTlUXtn94_Y2eJpgxylb9Ceo8HtdGi-F8/exec";
 
-// Referencje DOM
+// Elementy panelu logowania
+const loginContainer = document.getElementById('loginContainer');
+const loginForm = document.getElementById('loginForm');
+const sitePasswordInput = document.getElementById('sitePassword');
+const loginError = document.getElementById('loginError');
+
+// Główny kontener aplikacji (zawartość ukryta na start)
+const appContainer = document.getElementById('appContainer');
+
+// Zmienna przechowująca wpisane hasło podczas sesji
+let currentSessionPassword = "";
+
+// Referencje DOM dla aplikacji
 const userSelect = document.getElementById('userSelect');
 const outputConsole = document.getElementById('outputConsole');
 const gameForm = document.getElementById('gameForm');
@@ -15,25 +27,52 @@ const gameReviewField = document.getElementById('gameReview');
 const gameCollectionsField = document.getElementById('gameCollections');
 
 /**
- * Silnik żądań JSONP omijający restrykcje CORS i blokady Same-Origin Policy.
+ * Procedura zalogowania i weryfikacji hasła "w locie" na serwerze Google
+ */
+loginForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const enteredPassword = sitePasswordInput.value;
+    loginError.textContent = "Weryfikacja hasła... ⏳";
+
+    // Wykonujemy testowy strzał (próbujemy pobrać ustawienia z tym hasłem)
+    // Jeśli hasło jest złe, backend zwróci status "error"
+    const result = await sendApiRequestWithCustomPassword({ action: "getSettings" }, enteredPassword);
+
+    if (result.status === "success") {
+        currentSessionPassword = enteredPassword; // Zapisujemy poprawne hasło
+        loginContainer.style.display = "none";    // Ukrywamy panel logowania
+        appContainer.style.display = "block";    // Pokazujemy pełną aplikację
+        logToConsole("Autoryzacja pomyślna. Witaj w bazie gier!");
+    } else {
+        loginError.textContent = "🛑 Niepoprawne hasło dostępu! Spróbuj ponownie.";
+        sitePasswordInput.value = "";
+    }
+});
+
+/**
+ * Silnik żądań JSONP przesyłający aktualne hasło sesyjne
  */
 function sendApiRequest(params) {
+    return sendApiRequestWithCustomPassword(params, currentSessionPassword);
+}
+
+/**
+ * Pomocnicza funkcja realizująca niskopoziomowy strzał JSONP z przekazanym hasłem
+ */
+function sendApiRequestWithCustomPassword(params, password) {
     return new Promise((resolve, reject) => {
-        // Generujemy unikalną nazwę funkcji callback dla tego konkretnego żądania
         const callbackName = "jsonp_callback_" + Math.round(100000 * Math.random());
         
-        // Definiujemy tę funkcję globalnie, aby skrypt od Google mógł ją wywołać
         window[callbackName] = function(data) {
-            delete window[callbackName]; // Sprzątanie pamięci
-            document.body.removeChild(script); // Usuwanie tagu script
+            delete window[callbackName];
+            document.body.removeChild(script);
             resolve(data);
         };
 
-        // Budujemy parametry query string
         const queryParams = new URLSearchParams(params);
         queryParams.append("callback", callbackName);
+        queryParams.append("pass", password); // Przekazujemy klucz autoryzacji
 
-        // Tworzymy dynamiczny tag <script>
         const script = document.createElement("script");
         script.src = googleScriptUrl + "?" + queryParams.toString();
         script.onerror = () => {
@@ -72,7 +111,7 @@ document.getElementById('btnFetchGames').addEventListener('click', async () => {
         result.data.forEach(game => {
             html += `<li>
                 <strong>${game['Tytuł'] || 'Brak tytułu'}</strong> (${game['Stan'] || 'Brak Stanu'} - ${game['Platforma'] || 'Brak platformy'}) | Ocena: ${game['Ocena gry'] || '-'}
-                <br><small>Niezmienne ID: ${game.id || 'BRAK (Zapisz grę ponownie, aby dodać ID)'}</small>
+                <br><small>Niezmienne ID: ${game.id || 'BRAK'}</small>
                 <br>
                 <button onclick="prepareEditGame(${encodeURIComponent(JSON.stringify(game))})">Modyfikuj</button>
                 <button onclick="triggerDeleteGame('${game.id}')">Usuń z bazy</button>
@@ -114,7 +153,7 @@ gameForm.addEventListener('submit', async (e) => {
         action: isEdit ? "editGame" : "addGame",
         user: userSelect.value,
         gameId: currentId,
-        gameDetails: JSON.stringify(gameDetails) // Obiekty przekazujemy jako string w URL
+        gameDetails: JSON.stringify(gameDetails)
     });
     
     logToConsole(result);

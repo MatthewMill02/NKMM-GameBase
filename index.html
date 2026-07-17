@@ -1,75 +1,77 @@
-<!DOCTYPE html>
-<html lang="pl">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Game Base Testing Panel</title>
-    <link rel="stylesheet" href="css/styles.css">
-</head>
 <body>
-    <h1>🎮 Panel Testowy Bazy Gier</h1>
-    
-    <div class="user-selector">
-        <label>Użytkownik:</label>
-        <select id="userSelect">
-            <option value="Baza gier MM">MM (Matthew)</option>
-            <option value="Baza gier NK">NK (Przyjaciel)</option>
-        </select>
+    <!-- 🔑 PANEL LOGOWANIA (WIDOCZNY NA START) -->
+    <div id="loginContainer" style="max-width: 400px; margin: 100px auto; padding: 20px; border: 1px solid #ddd; background: #fff; border-radius: 8px; text-align: center;">
+        <h2>🔑 Baza Gier NKMM</h2>
+        <p>Wprowadź tajne hasło dostępu, aby odblokować panel administracyjny:</p>
+        <form id="loginForm">
+            <input type="password" id="sitePassword" placeholder="Hasło dostępowe" required style="width: 80%; padding: 10px; margin-bottom: 10px; border: 1px solid #ccc; border-radius: 4px;">
+            <br>
+            <button type="submit" style="width: 85%; padding: 10px; background: #2c3e50; color: white; border: none; border-radius: 4px; cursor: pointer;">Zaloguj się</button>
+        </form>
+        <div id="loginError" style="color: red; margin-top: 10px; font-weight: bold; font-family: monospace;"></div>
     </div>
 
-    <hr>
-
-    <!-- SEKCOJA: TEST POBIERANIA I WYŚWIETLANIA -->
-    <h2>1. Pobieranie Danych</h2>
-    <button id="btnFetchGames">Pobierz Wszystkie Gry</button>
-    <button id="btnFetchSettings">Pobierz Ustawienia</button>
-    
-    <div id="outputConsole" class="console">Konsola testowa: oczekiwanie na akcję...</div>
-
-    <hr>
-
-    <!-- SEKCJA: FORMULARZ DODAWANIA / EDYCJI -->
-    <h2>2. Dodaj / Edytuj Grę</h2>
-    <form id="gameForm">
-        <input type="hidden" id="gameId"> <!-- Puste dla nowej gry, wypełnione dla edycji -->
+    <!-- 🎮 GŁÓWNA ZAWARTOŚĆ APLIKACJI (UKRYTA PRZED LOGOWANIEM) -->
+    <div id="appContainer" style="display: none;">
+        <h1>🎮 Panel Testowy Bazy Gier</h1>
         
-        <label>Tytuł:</label>
-        <input type="text" id="gameTitle" required><br>
+        <div class="user-selector">
+            <label>Użytkownik:</label>
+            <select id="userSelect">
+                <option value="Baza gier MM">MM (Matthew)</option>
+                <option value="Baza gier NK">NK (Przyjaciel)</option>
+            </select>
+        </div>
 
-        <label>Stan:</label>
-        <input type="text" id="gameStatus" placeholder="np. Ukończona, Gram teraz" required><br>
+        <hr>
 
-        <label>Platforma:</label>
-        <input type="text" id="gamePlatform"><br>
+        <h2>1. Pobieranie Danych</h2>
+        <button id="btnFetchGames">Pobierz Wszystkie Gry</button>
+        <button id="btnFetchSettings">Pobierz Ustawienia</button>
+        
+        <div id="outputConsole" class="console">Konsola testowa: oczekiwanie na akcję...</div>
 
-        <label>Ocena gry:</label>
-        <input type="number" id="gameRating" step="0.1" min="0" max="10"><br>
+        <hr>
 
-        <label>Recenzja:</label>
-        <textarea id="gameReview"></textarea><br>
+        <h2>2. Dodaj / Edytuj Grę</h2>
+        <form id="gameForm">
+            <input type="hidden" id="gameId">
+            
+            <label>Tytuł:</label>
+            <input type="text" id="gameTitle" required><br>
 
-        <label>Kolekcje / Tagi:</label>
-        <input type="text" id="gameCollections" placeholder="Ulubione, Nostalgia (po przecinku)"><br>
+            <label>Stan:</label>
+            <input type="text" id="gameStatus" required><br>
 
-        <button type="submit" id="btnSubmitGame">Zapisz Grę (Dodaj/Edytuj)</button>
-        <button type="button" id="btnResetForm" style="display:none;">Anuluj Edycję</button>
-    </form>
+            <label>Platforma:</label>
+            <input type="text" id="gamePlatform"><br>
 
-    <hr>
+            <label>Ocena gry:</label>
+            <input type="number" id="gameRating" step="0.1" min="0" max="10"><br>
 
-    <!-- SEKCJA: ZARZĄDZANIE USTAWIANIAMI -->
-    <h2>3. Szybkie Zarządzanie Słownikami (Ustawienia)</h2>
-    <div class="settings-test">
-        <select id="settingsColumn">
-            <option value="Stan">Stan</option>
-            <option value="Kolekcje">Kolekcje</option>
-            <option value="Platformy">Platformy</option>
-        </select>
-        <input type="text" id="settingsValue" placeholder="Wartość">
-        <button id="btnAddSetting">Dodaj do słownika</button>
+            <label>Recenzja:</label>
+            <textarea id="gameReview"></textarea><br>
+
+            <label>Kolekcje / Tagi:</label>
+            <input type="text" id="gameCollections"><br>
+
+            <button type="submit" id="btnSubmitGame">Zapisz Grę (Dodaj/Edytuj)</button>
+            <button type="button" id="btnResetForm" style="display:none;">Anuluj Edycję</button>
+        </form>
+
+        <hr>
+
+        <h2>3. Szybkie Zarządzanie Słownikami</h2>
+        <div class="settings-test">
+            <select id="settingsColumn">
+                <option value="Stan">Stan</option>
+                <option value="Kolekcje">Kolekcje</option>
+                <option value="Platformy">Platformy</option>
+            </select>
+            <input type="text" id="settingsValue" placeholder="Wartość">
+            <button id="btnAddSetting">Dodaj do słownika</button>
+        </div>
     </div>
 
-    <!-- Skrypt sterujący -->
     <script src="js/app.js"></script>
 </body>
-</html>
