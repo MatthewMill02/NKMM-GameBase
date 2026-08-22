@@ -1,78 +1,348 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NKMM Baza Gier - Biblioteka i Statystyki</title>
+    <meta name="description" content="Osobista baza i rejestr gier wideo NKMM z synchronizacją w chmurze.">
+    <link rel="stylesheet" href="css/style.css">
+</head>
 <body>
-    <!-- 🔑 PANEL AUTORYZACJI ADMINA (NA GÓRZE STRONY) -->
-    <div id="loginContainer" style="padding: 10px; border-bottom: 2px solid #ddd; background: #fff; margin-bottom: 20px; display: flex; align-items: center; justify-content: space-between;">
-        <span style="font-weight: bold; font-family: sans-serif;">🔒 Panel Administratora (Zapis/Edycja):</span>
-        <form id="loginForm" style="margin: 0; padding: 0; border: none; background: transparent;">
-            <input type="password" id="sitePassword" placeholder="Wpisz hasło admina" required style="padding: 5px; border: 1px solid #ccc; border-radius: 4px;">
-            <button type="submit" style="padding: 5px 15px; margin: 0 5px; background: #2c3e50; color: white; border: none; border-radius: 4px; cursor: pointer;">Odblokuj zapis</button>
-        </form>
-        <span id="loginError" style="color: red; font-weight: bold; font-family: monospace; font-size: 12px;"></span>
-    </div>
+    <!-- GÓRNY PASEK NAWIGACYJNY -->
+    <header class="app-header" id="appHeader">
+        <div class="header-left">
+            <button id="btnNavHome" class="nav-btn" title="Powrót do ekranu powitalnego">
+                <span class="nav-icon">&lt;</span> Ekran Główny
+            </button>
+            <div class="active-profile-indicator" id="activeProfileIndicator" style="display: none;">
+                <img id="activeProfileAvatar" src="assets/matthewmill.PNG" alt="Avatar" class="mini-avatar">
+                <span id="activeProfileName">Matthew (MM)</span>
+            </div>
+        </div>
 
-    <!-- 🌐 SEKCJA PUBLICZNA (WIDOCZNA DLA KAŻDEGO OD RAZU) -->
-    <h1>🎮 Publiczna Przeglądarka Gier NKMM</h1>
-    
-    <div class="user-selector">
-        <label>Wybierz profil do podejrzenia biblioteki:</label>
-        <select id="userSelect">
-            <option value="Baza gier MM">MM (Matthew)</option>
-            <option value="Baza gier NK">NK (Przyjaciel)</option>
-        </select>
-    </div>
+        <div class="header-center">
+            <div class="user-quick-switch" id="userQuickSwitch" style="display: none;">
+                <label for="headerUserSelect">Profil:</label>
+                <select id="headerUserSelect" class="form-select"></select>
+            </div>
+        </div>
 
-    <hr>
+        <div class="header-right">
+            <button id="btnRefreshData" class="nav-btn" title="Pobierz najświeższe dane z Google Sheets">[Odśwież z chmury]</button>
+            <button id="btnToggleStats" class="action-btn" style="display: none;">Statystyki i Słowniki</button>
+            <button id="btnAdminLoginModal" class="action-btn">Logowanie Admina</button>
+            <div id="adminBadge" class="admin-badge" style="display: none;">
+                <span>Tryb Administratora</span>
+                <button id="btnLogoutAdmin" class="logout-btn" title="Wyloguj">[Wyloguj]</button>
+            </div>
+        </div>
+    </header>
 
-    <h2>1. Pobieranie i Wyświetlanie Zbiorów</h2>
-    <button id="btnFetchGames">Pobierz Wszystkie Gry</button>
-    
-    <div id="outputConsole" class="console">Konsola testowa: oczekiwanie na pobranie danych gier...</div>
+    <!-- 1. EKRAN POWITALNY (LANDING SCREEN) -->
+    <main id="welcomeScreen" class="welcome-screen">
+        <div class="welcome-center-box" id="welcomeCenterBox">
+            <h1 class="welcome-title">NKMM Baza gier</h1>
+            <p class="welcome-subtitle">Wybierz profil gracza, aby przejść do bazy tytułów</p>
+        </div>
+        <div id="headsScatterContainer" class="heads-scatter-container">
+            <!-- Awatary graczy generowane dynamicznie i rozmieszczane losowo -->
+        </div>
+    </main>
 
-    <!-- 🛠️ STREFA ADMINISTRATORA (UKRYTA DLA ZWYKŁYCH GOŚCI NA START) -->
-    <div id="adminZone" style="display: none;">
-        <hr style="border: 2px solid #2c3e50;">
-        <h2 style="color: #c0392b;">🛠️ Narzędzia Panelu Administracyjnego</h2>
-        
-        <button id="btnFetchSettings">Pobierz Słowniki Ustawień</button>
-        
-        <h3>2. Dodaj / Edytuj Grę w Arkuszu</h3>
-        <form id="gameForm">
-            <input type="hidden" id="gameId">
-            
-            <label>Tytuł:</label>
-            <input type="text" id="gameTitle" required><br>
+    <!-- 2. WIDOK GŁÓWNY BIBLIOTEKI GIER (DASHBOARD) -->
+    <main id="dashboardScreen" class="dashboard-screen" style="display: none;">
+        <section class="dashboard-controls">
+            <div class="search-sort-bar">
+                <div class="search-wrapper">
+                    <input type="text" id="searchInput" class="search-input" placeholder="Szukaj gry po tytule, platformie, tagach...">
+                    <button id="btnClearSearch" class="clear-btn" style="display: none;">[x]</button>
+                </div>
+                <div class="sort-wrapper">
+                    <label for="sortSelect">Sortuj:</label>
+                    <select id="sortSelect" class="form-select">
+                        <option value="title_asc">Tytuł (A-Z)</option>
+                        <option value="title_desc">Tytuł (Z-A)</option>
+                        <option value="rating_desc">Ocena (Od najwyższej)</option>
+                        <option value="rating_asc">Ocena (Od najniższej)</option>
+                        <option value="hours_desc">Liczba godzin (Od największej)</option>
+                        <option value="date_desc">Data ukończenia (Od najnowszych)</option>
+                    </select>
+                </div>
+                <div id="adminActionsBar" class="admin-actions-bar" style="display: none;">
+                    <button id="btnOpenAddGameModal" class="btn-primary">[+] Dodaj nową grę</button>
+                    <button id="btnOpenAddUserModal" class="btn-secondary">[+] Dodaj profil</button>
+                </div>
+            </div>
 
-            <label>Stan:</label>
-            <input type="text" id="gameStatus" required><br>
+            <!-- FILTRY KATEGORII -->
+            <div class="filters-row">
+                <div class="filter-group">
+                    <label for="filterStatus">Stan:</label>
+                    <select id="filterStatus" class="form-select">
+                        <option value="">Wszystkie stany</option>
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <label for="filterPlatform">Platforma:</label>
+                    <select id="filterPlatform" class="form-select">
+                        <option value="">Wszystkie platformy</option>
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <label for="filterCollection">Kolekcja / Tag:</label>
+                    <select id="filterCollection" class="form-select">
+                        <option value="">Wszystkie kolekcje</option>
+                    </select>
+                </div>
+                <div class="filter-reset">
+                    <button id="btnResetFilters" class="btn-link">Wyczyść filtry</button>
+                </div>
+            </div>
+        </section>
 
-            <label>Platforma:</label>
-            <input type="text" id="gamePlatform"><br>
+        <!-- PODSUMOWANIE WYNIKÓW -->
+        <div class="results-meta">
+            <span id="resultsCount">Ładowanie gier...</span>
+        </div>
 
-            <label>Ocena gry:</label>
-            <input type="number" id="gameRating" step="0.1" min="0" max="10"><br>
+        <!-- SKELETON LOADER -->
+        <div id="skeletonLoader" class="skeleton-grid">
+            <div class="skeleton-card"></div>
+            <div class="skeleton-card"></div>
+            <div class="skeleton-card"></div>
+            <div class="skeleton-card"></div>
+            <div class="skeleton-card"></div>
+            <div class="skeleton-card"></div>
+        </div>
 
-            <label>Recenzja:</label>
-            <textarea id="gameReview"></textarea><br>
+        <!-- LISTA / SIATKA GIER -->
+        <div id="gamesGrid" class="games-grid" style="display: none;"></div>
 
-            <label>Kolekcje / Tagi:</label>
-            <input type="text" id="gameCollections"><br>
+        <!-- KOMUNIKAT BRAKU WYNIKÓW -->
+        <div id="emptyResultsMessage" class="empty-state" style="display: none;">
+            <p>Nie znaleziono gier spełniających wybrane kryteria.</p>
+        </div>
+    </main>
 
-            <button type="submit" id="btnSubmitGame">Zapisz Grę (Modyfikacja w chmurze)</button>
-            <button type="button" id="btnResetForm" style="display:none;">Anuluj Edycję</button>
-        </form>
-
-        <hr>
-
-        <h3>3. Szybkie Zarządzanie Słownikami</h3>
-        <div class="settings-test">
-            <select id="settingsColumn">
-                <option value="Stan">Stan</option>
-                <option value="Kolekcje">Kolekcje</option>
-                <option value="Platformy">Platformy</option>
-            </select>
-            <input type="text" id="settingsValue" placeholder="Wartość">
-            <button id="btnAddSetting">Dodaj do słownika</button>
+    <!-- 3. MODAL: SZCZEGÓŁY GRY -->
+    <div id="gameDetailsModal" class="modal-backdrop" style="display: none;">
+        <div class="modal-window">
+            <div class="modal-header">
+                <h2 id="modalGameTitle">Szczegóły gry</h2>
+                <button class="modal-close-btn" data-close="gameDetailsModal">[x]</button>
+            </div>
+            <div class="modal-body" id="modalGameBody">
+                <!-- Treść wypełniana dynamicznie w JS -->
+            </div>
+            <div class="modal-footer" id="modalGameFooter">
+                <button class="btn-secondary" data-close="gameDetailsModal">Zamknij</button>
+            </div>
         </div>
     </div>
 
+    <!-- 4. MODAL: LOGOWANIE ADMINISTRATORA -->
+    <div id="adminLoginModal" class="modal-backdrop" style="display: none;">
+        <div class="modal-window modal-small">
+            <div class="modal-header">
+                <h2>Autoryzacja Administratora</h2>
+                <button class="modal-close-btn" data-close="adminLoginModal">[x]</button>
+            </div>
+            <form id="adminLoginForm">
+                <div class="modal-body">
+                    <p class="modal-hint">Podaj hasło administratora, aby uzyskać uprawnienia do zapisu, edycji i zarządzania użytkownikami.</p>
+                    <div class="form-group">
+                        <label for="adminPasswordInput">Hasło dostępu:</label>
+                        <input type="password" id="adminPasswordInput" class="form-input" required autocomplete="current-password">
+                    </div>
+                    <div id="adminLoginError" class="form-error" style="display: none;"></div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn-secondary" data-close="adminLoginModal">Anuluj</button>
+                    <button type="submit" id="btnSubmitAdminLogin" class="btn-primary">Zaloguj</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- 5. MODAL: DODAWANIE / EDYCJA GRY -->
+    <div id="gameEditModal" class="modal-backdrop" style="display: none;">
+        <div class="modal-window modal-large">
+            <div class="modal-header">
+                <h2 id="gameEditModalTitle">Dodaj grę do bazy</h2>
+                <button class="modal-close-btn" data-close="gameEditModal">[x]</button>
+            </div>
+            <form id="gameEditForm">
+                <input type="hidden" id="formGameId">
+                <div class="modal-body">
+                    <div class="form-row">
+                        <div class="form-group col-12">
+                            <label for="formGameTitle">Tytuł gry *</label>
+                            <input type="text" id="formGameTitle" class="form-input" required>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group col-6">
+                            <label for="formGameStatus">Stan gry *</label>
+                            <select id="formGameStatus" class="form-select" required></select>
+                        </div>
+                        <div class="form-group col-6">
+                            <label for="formGamePlatform">Platforma</label>
+                            <select id="formGamePlatform" class="form-select"></select>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group col-3">
+                            <label for="formRatingFabuła">Fabuła (0-10)</label>
+                            <input type="number" id="formRatingFabuła" class="form-input" step="0.1" min="0" max="10">
+                        </div>
+                        <div class="form-group col-3">
+                            <label for="formRatingGrafika">Grafika (0-10)</label>
+                            <input type="number" id="formRatingGrafika" class="form-input" step="0.1" min="0" max="10">
+                        </div>
+                        <div class="form-group col-3">
+                            <label for="formRatingMechanika">Mechanika (0-10)</label>
+                            <input type="number" id="formRatingMechanika" class="form-input" step="0.1" min="0" max="10">
+                        </div>
+                        <div class="form-group col-3">
+                            <label for="formRatingOgólna">Ocena gry (0-10)</label>
+                            <input type="number" id="formRatingOgólna" class="form-input" step="0.1" min="0" max="10">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group col-6">
+                            <label for="formHours">Liczba godzin</label>
+                            <input type="number" id="formHours" class="form-input" step="0.5" min="0">
+                        </div>
+                        <div class="form-group col-6">
+                            <label for="formCompletionDate">Data ukończenia</label>
+                            <input type="date" id="formCompletionDate" class="form-input">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group col-12">
+                            <label for="formCollections">Kolekcje / Tagi (oddzielone przecinkami)</label>
+                            <input type="text" id="formCollections" class="form-input" placeholder="np. Najlepsze, Ulubione, Polecajka dla Przyjaciela">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group col-12">
+                            <label for="formReview">Recenzja / Notatka</label>
+                            <textarea id="formReview" class="form-textarea" rows="4"></textarea>
+                        </div>
+                    </div>
+                    <div id="gameEditError" class="form-error" style="display: none;"></div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn-secondary" data-close="gameEditModal">Anuluj</button>
+                    <button type="submit" id="btnSaveGameSubmit" class="btn-primary">Zapisz w arkuszu</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- 6. MODAL: ZARZĄDZANIE SŁOWNIKAMI I STATYSTYKI -->
+    <div id="statsModal" class="modal-backdrop" style="display: none;">
+        <div class="modal-window modal-large">
+            <div class="modal-header">
+                <h2>Statystyki i Słowniki Bazy</h2>
+                <button class="modal-close-btn" data-close="statsModal">[x]</button>
+            </div>
+            <div class="modal-body">
+                <div class="tabs-nav">
+                    <button class="tab-btn active" data-tab="tabStan">Stany</button>
+                    <button class="tab-btn" data-tab="tabKolekcje">Kolekcje</button>
+                    <button class="tab-btn" data-tab="tabPlatformy">Platformy</button>
+                    <button class="tab-btn" data-tab="tabOceny">Oceny i Średnie</button>
+                    <button class="tab-btn" data-tab="tabDaty">Ukończenia</button>
+                </div>
+
+                <div class="tab-content" id="tabStan">
+                    <div class="tab-actions admin-only-block" style="display: none;">
+                        <input type="text" id="newStanVal" class="form-input-inline" placeholder="Nowy stan">
+                        <input type="text" id="newStanDesc" class="form-input-inline" placeholder="Opis stanu">
+                        <button id="btnAddStan" class="btn-primary">[+] Dodaj stan</button>
+                    </div>
+                    <div class="table-container" id="tableStanContainer"></div>
+                </div>
+
+                <div class="tab-content" id="tabKolekcje" style="display: none;">
+                    <div class="tab-actions admin-only-block" style="display: none;">
+                        <input type="text" id="newKolVal" class="form-input-inline" placeholder="Nowa kolekcja">
+                        <input type="text" id="newKolDesc" class="form-input-inline" placeholder="Opis kolekcji">
+                        <button id="btnAddKol" class="btn-primary">[+] Dodaj kolekcję</button>
+                    </div>
+                    <div class="table-container" id="tableKolekcjeContainer"></div>
+                </div>
+
+                <div class="tab-content" id="tabPlatformy" style="display: none;">
+                    <div class="tab-actions admin-only-block" style="display: none;">
+                        <input type="text" id="newPlatVal" class="form-input-inline" placeholder="Nowa platforma">
+                        <button id="btnAddPlat" class="btn-primary">[+] Dodaj platformę</button>
+                    </div>
+                    <div class="table-container" id="tablePlatformyContainer"></div>
+                </div>
+
+                <div class="tab-content" id="tabOceny" style="display: none;">
+                    <h3>Średnia ocen</h3>
+                    <div class="table-container" id="tableSrednieContainer"></div>
+                    <h3 style="margin-top: 20px;">Rozkład liczby ocen</h3>
+                    <div class="table-container" id="tableLiczbaOcenContainer"></div>
+                </div>
+
+                <div class="tab-content" id="tabDaty" style="display: none;">
+                    <h3>Tytuły ukończone w poszczególnych miesiącach</h3>
+                    <div class="table-container" id="tableUkonczoneContainer"></div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" data-close="statsModal">Zamknij</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 7. MODAL: DODAWANIE NOWEGO UŻYTKOWNIKA -->
+    <div id="addUserModal" class="modal-backdrop" style="display: none;">
+        <div class="modal-window modal-small">
+            <div class="modal-header">
+                <h2>Dodaj Nowego Użytkownika</h2>
+                <button class="modal-close-btn" data-close="addUserModal">[x]</button>
+            </div>
+            <form id="addUserForm">
+                <div class="modal-body">
+                    <p class="modal-hint">Tworzy nowy arkusz bazy gier oraz automatycznie dopisuje kolumny i formuły statystyczne we wszystkich arkuszach.</p>
+                    <div class="form-group">
+                        <label for="newUserName">Nazwa / Imię użytkownika *</label>
+                        <input type="text" id="newUserName" class="form-input" required placeholder="np. Jan Kowalski">
+                    </div>
+                    <div class="form-group">
+                        <label for="newUserCode">Kod arkusza (Inicjały) *</label>
+                        <input type="text" id="newUserCode" class="form-input" required placeholder="np. JK" maxlength="5" style="text-transform: uppercase;">
+                    </div>
+                    <div class="form-group">
+                        <label for="newUserColor">Kolor zakładki arkusza</label>
+                        <input type="color" id="newUserColor" class="form-color" value="#2c3e50">
+                    </div>
+                    <div id="addUserError" class="form-error" style="display: none;"></div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn-secondary" data-close="addUserModal">Anuluj</button>
+                    <button type="submit" id="btnSubmitAddUser" class="btn-primary">Utwórz profil i arkusz</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- STOPKA -->
+    <footer class="app-footer">
+        <div class="footer-content">
+            <span>NKMM Baza Gier - Osobisty rejestr rozgrywek</span>
+            <span class="footer-links">
+                <a href="#welcome" id="footerHomeLink">Start</a> | 
+                <a href="https://github.com" target="_blank" rel="noopener">GitHub Pages</a>
+            </span>
+        </div>
+    </footer>
+
     <script src="js/app.js"></script>
 </body>
+</html>
