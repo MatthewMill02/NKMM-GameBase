@@ -8,41 +8,56 @@
     <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
-    <!-- GÓRNY PASEK NAWIGACYJNY -->
-    <header class="app-header" id="appHeader">
+    <!-- GÓRNY PASEK NAWIGACYJNY (Ukryty na ekranie powitalnym) -->
+    <header class="app-header" id="appHeader" style="display: none;">
         <div class="header-left">
             <button id="btnNavHome" class="nav-btn" title="Powrót do ekranu powitalnego">
-                <span class="nav-icon">&lt;</span> Ekran Główny
+                <span class="nav-icon">&lt;</span> Start
             </button>
-            <div class="active-profile-indicator" id="activeProfileIndicator" style="display: none;">
-                <img id="activeProfileAvatar" src="assets/matthewmill.PNG" alt="Avatar" class="mini-avatar">
-                <span id="activeProfileName">Matthew (MM)</span>
-            </div>
-        </div>
-
-        <div class="header-center">
-            <div class="user-quick-switch" id="userQuickSwitch" style="display: none;">
-                <label for="headerUserSelect">Profil:</label>
-                <select id="headerUserSelect" class="form-select"></select>
+            <!-- Rozwijane menu profili -->
+            <div class="profile-dropdown-wrapper" id="profileDropdownWrapper">
+                <button class="active-profile-btn" id="activeProfileBtn" title="Kliknij, aby zmienić profil">
+                    <img id="activeProfileAvatar" src="assets/matthewmill.PNG" alt="Avatar" class="mini-avatar">
+                    <span id="activeProfileName">MatthewMill (MM)</span>
+                    <span class="dropdown-caret">v</span>
+                </button>
+                <div class="profile-dropdown-menu" id="profileDropdownMenu" style="display: none;">
+                    <!-- Pozostałe profile generowane dynamicznie w JS -->
+                </div>
             </div>
         </div>
 
         <div class="header-right">
-            <button id="btnRefreshData" class="nav-btn" title="Pobierz najświeższe dane z Google Sheets">[Odśwież z chmury]</button>
-            <button id="btnToggleStats" class="action-btn" style="display: none;">Statystyki i Słowniki</button>
-            <button id="btnAdminLoginModal" class="action-btn">Logowanie Admina</button>
-            <div id="adminBadge" class="admin-badge" style="display: none;">
-                <span>Tryb Administratora</span>
-                <button id="btnLogoutAdmin" class="logout-btn" title="Wyloguj">[Wyloguj]</button>
+            <button id="btnRefreshData" class="action-btn" title="Pobierz najświeższe dane z Google Sheets">[Odśwież]</button>
+            <button id="btnToggleStats" class="action-btn">Ustawienia</button>
+            <button id="btnAdminLoginModal" class="action-btn">Dostęp</button>
+            
+            <!-- Wskaźnik stanu synchronizacji i kolejki zadań w tle -->
+            <div id="syncStatusWrapper" class="sync-status-wrapper" style="display: none;">
+                <button id="btnSyncStatus" class="sync-status-btn" title="Kolejka synchronizacji w chmurze">
+                    <img id="syncStatusImg" src="assets/sync.png" alt="Status synchronizacji" class="sync-icon-img">
+                </button>
+                <button id="btnLogoutAdmin" class="logout-btn" title="Wyloguj z trybu administratora">[Wyloguj]</button>
+
+                <!-- Rozwijany panel kolejki synchronizacji -->
+                <div id="syncQueuePanel" class="sync-queue-panel" style="display: none;">
+                    <div class="sync-queue-header">
+                        <h4>Kolejka synchronizacji w tle</h4>
+                        <span id="syncQueueCount" class="queue-count-badge">0 zadań</span>
+                    </div>
+                    <div id="syncQueueList" class="sync-queue-list">
+                        <p class="queue-empty-msg">Wszystkie zmiany są zsynchronizowane.</p>
+                    </div>
+                </div>
             </div>
         </div>
     </header>
 
-    <!-- 1. EKRAN POWITALNY (LANDING SCREEN) -->
+    <!-- 1. EKRAN POWITALNY (STARTOWY) -->
     <main id="welcomeScreen" class="welcome-screen">
         <div class="welcome-center-box" id="welcomeCenterBox">
-            <h1 class="welcome-title">NKMM Baza gier</h1>
-            <p class="welcome-subtitle">Wybierz profil gracza, aby przejść do bazy tytułów</p>
+            <h1 class="welcome-title">NKMM Baza Gier</h1>
+            <p class="welcome-subtitle">Wybierz profil gracza</p>
         </div>
         <div id="headsScatterContainer" class="heads-scatter-container">
             <!-- Awatary graczy generowane dynamicznie i rozmieszczane losowo -->
@@ -51,85 +66,166 @@
 
     <!-- 2. WIDOK GŁÓWNY BIBLIOTEKI GIER (DASHBOARD) -->
     <main id="dashboardScreen" class="dashboard-screen" style="display: none;">
-        <section class="dashboard-controls">
-            <div class="search-sort-bar">
-                <div class="search-wrapper">
-                    <input type="text" id="searchInput" class="search-input" placeholder="Szukaj gry po tytule, platformie, tagach...">
-                    <button id="btnClearSearch" class="clear-btn" style="display: none;">[x]</button>
+        
+        <!-- BELKA PROFILU ZE STATYSTYKAMI I GABLOTĄ -->
+        <section class="profile-banner" id="profileBanner">
+            <div class="profile-banner-top">
+                <div class="profile-info-block">
+                    <img id="bannerProfileAvatar" src="assets/matthewmill.PNG" alt="Profil gracza" class="banner-avatar">
+                    <div>
+                        <h2 id="bannerProfileName" class="banner-username">MatthewMill (MM)</h2>
+                        <span id="bannerProfileSheet" class="banner-usersheet">Baza gier MM</span>
+                    </div>
                 </div>
-                <div class="sort-wrapper">
-                    <label for="sortSelect">Sortuj:</label>
-                    <select id="sortSelect" class="form-select">
-                        <option value="title_asc">Tytuł (A-Z)</option>
-                        <option value="title_desc">Tytuł (Z-A)</option>
-                        <option value="rating_desc">Ocena (Od najwyższej)</option>
-                        <option value="rating_asc">Ocena (Od najniższej)</option>
-                        <option value="hours_desc">Liczba godzin (Od największej)</option>
-                        <option value="date_desc">Data ukończenia (Od najnowszych)</option>
-                    </select>
-                </div>
-                <div id="adminActionsBar" class="admin-actions-bar" style="display: none;">
-                    <button id="btnOpenAddGameModal" class="btn-primary">[+] Dodaj nową grę</button>
-                    <button id="btnOpenAddUserModal" class="btn-secondary">[+] Dodaj profil</button>
+                
+                <!-- Szybkie statystyki profilu -->
+                <div class="profile-stats-grid">
+                    <div class="stat-card">
+                        <span class="stat-value" id="statTotalGames">0</span>
+                        <span class="stat-label">Łącznie gier</span>
+                    </div>
+                    <div class="stat-card">
+                        <span class="stat-value" id="statCompletedGames">0</span>
+                        <span class="stat-label">Ukończone</span>
+                    </div>
+                    <div class="stat-card">
+                        <span class="stat-value" id="statTotalHours">0h</span>
+                        <span class="stat-label">Łączny czas</span>
+                    </div>
+                    <div class="stat-card">
+                        <span class="stat-value" id="statAvgRating">0.0</span>
+                        <span class="stat-label">Średnia ocen</span>
+                    </div>
                 </div>
             </div>
 
-            <!-- FILTRY KATEGORII -->
-            <div class="filters-row">
-                <div class="filter-group">
-                    <label for="filterStatus">Stan:</label>
-                    <select id="filterStatus" class="form-select">
-                        <option value="">Wszystkie stany</option>
-                    </select>
+            <!-- GABLOTA WYRÓŻNIONYCH GIER (W STYLU STEAM) -->
+            <div class="profile-showcase-section" id="profileShowcaseSection">
+                <div class="showcase-header">
+                    <h3>Wyróżnione gry</h3>
+                    <button id="btnEditShowcase" class="btn-card-action admin-only-block" style="display: none;">[Edytuj gablotę]</button>
                 </div>
-                <div class="filter-group">
-                    <label for="filterPlatform">Platforma:</label>
-                    <select id="filterPlatform" class="form-select">
-                        <option value="">Wszystkie platformy</option>
-                    </select>
-                </div>
-                <div class="filter-group">
-                    <label for="filterCollection">Kolekcja / Tag:</label>
-                    <select id="filterCollection" class="form-select">
-                        <option value="">Wszystkie kolekcje</option>
-                    </select>
-                </div>
-                <div class="filter-reset">
-                    <button id="btnResetFilters" class="btn-link">Wyczyść filtry</button>
+                <div id="showcaseGrid" class="showcase-grid">
+                    <p class="showcase-empty-hint">Brak wyróżnionych gier w gablocie.</p>
                 </div>
             </div>
         </section>
 
-        <!-- PODSUMOWANIE WYNIKÓW -->
-        <div class="results-meta">
-            <span id="resultsCount">Ładowanie gier...</span>
-        </div>
+        <!-- GŁÓWNE ZAKŁADKI NAWIGACJI (TABY) -->
+        <nav class="main-tabs-bar" id="mainNavTabs">
+            <button class="main-tab-btn active" id="tabBtnGames" data-target="tabViewGames">Baza gier</button>
+            <button class="main-tab-btn" id="tabBtnCharts" data-target="tabViewCharts">Wykresy</button>
+        </nav>
 
-        <!-- SKELETON LOADER -->
-        <div id="skeletonLoader" class="skeleton-grid">
-            <div class="skeleton-card"></div>
-            <div class="skeleton-card"></div>
-            <div class="skeleton-card"></div>
-            <div class="skeleton-card"></div>
-            <div class="skeleton-card"></div>
-            <div class="skeleton-card"></div>
-        </div>
+        <!-- TAB 1: BAZA GIER (WYSZUKIWANIE, FILTRY, LISTA) -->
+        <section id="tabViewGames" class="main-tab-view">
+            <div class="dashboard-controls">
+                <div class="search-sort-bar">
+                    <div class="search-wrapper">
+                        <input type="text" id="searchInput" class="search-input" placeholder="Szukaj gry po tytule, platformie, tagach...">
+                        <button id="btnClearSearch" class="clear-btn" style="display: none;">[x]</button>
+                    </div>
+                    <div class="sort-wrapper">
+                        <label for="sortSelect">Sortuj:</label>
+                        <select id="sortSelect" class="form-select">
+                            <option value="title_asc">Tytuł (A-Z)</option>
+                            <option value="title_desc">Tytuł (Z-A)</option>
+                            <option value="rating_desc">Ocena (Od najwyższej)</option>
+                            <option value="rating_asc">Ocena (Od najniższej)</option>
+                            <option value="hours_desc">Liczba godzin (Od największej)</option>
+                            <option value="date_desc">Data ukończenia (Od najnowszych)</option>
+                        </select>
+                    </div>
+                    <div id="adminActionsBar" class="admin-actions-bar" style="display: none;">
+                        <button id="btnOpenAddGameModal" class="btn-primary">[+] Dodaj nową grę</button>
+                        <button id="btnOpenAddUserModal" class="btn-secondary">[+] Dodaj profil</button>
+                    </div>
+                </div>
 
-        <!-- LISTA / SIATKA GIER -->
-        <div id="gamesGrid" class="games-grid" style="display: none;"></div>
+                <!-- FILTRY WIELOKROTNEGO WYBORU (LISTY ROZWIJANE) -->
+                <div class="filters-row">
+                    <!-- Filtr Stanu -->
+                    <div class="filter-dropdown-wrapper" id="filterStatusWrapper">
+                        <button type="button" class="filter-dropdown-btn" id="btnFilterStatus">
+                            <span id="labelFilterStatus">Stan: Wszystkie</span>
+                            <span class="dropdown-caret">v</span>
+                        </button>
+                        <div class="filter-dropdown-menu" id="menuFilterStatus" style="display: none;">
+                            <div class="filter-checklist" id="checklistStatus"></div>
+                        </div>
+                    </div>
 
-        <!-- KOMUNIKAT BRAKU WYNIKÓW -->
-        <div id="emptyResultsMessage" class="empty-state" style="display: none;">
-            <p>Nie znaleziono gier spełniających wybrane kryteria.</p>
-        </div>
+                    <!-- Filtr Platformy -->
+                    <div class="filter-dropdown-wrapper" id="filterPlatformWrapper">
+                        <button type="button" class="filter-dropdown-btn" id="btnFilterPlatform">
+                            <span id="labelFilterPlatform">Platforma: Wszystkie</span>
+                            <span class="dropdown-caret">v</span>
+                        </button>
+                        <div class="filter-dropdown-menu" id="menuFilterPlatform" style="display: none;">
+                            <div class="filter-checklist" id="checklistPlatform"></div>
+                        </div>
+                    </div>
+
+                    <!-- Filtr Kolekcji -->
+                    <div class="filter-dropdown-wrapper" id="filterCollectionWrapper">
+                        <button type="button" class="filter-dropdown-btn" id="btnFilterCollection">
+                            <span id="labelFilterCollection">Kolekcje: Wszystkie</span>
+                            <span class="dropdown-caret">v</span>
+                        </button>
+                        <div class="filter-dropdown-menu" id="menuFilterCollection" style="display: none;">
+                            <div class="filter-checklist" id="checklistCollection"></div>
+                        </div>
+                    </div>
+
+                    <div class="filter-reset">
+                        <button id="btnResetFilters" class="btn-link">Wyczyść filtry</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- PODSUMOWANIE WYNIKÓW -->
+            <div class="results-meta">
+                <span id="resultsCount">Ładowanie gier...</span>
+            </div>
+
+            <!-- SKELETON LOADER -->
+            <div id="skeletonLoader" class="skeleton-grid">
+                <div class="skeleton-card"></div>
+                <div class="skeleton-card"></div>
+                <div class="skeleton-card"></div>
+                <div class="skeleton-card"></div>
+                <div class="skeleton-card"></div>
+                <div class="skeleton-card"></div>
+            </div>
+
+            <!-- LISTA / SIATKA GIER -->
+            <div id="gamesGrid" class="games-grid" style="display: none;"></div>
+
+            <!-- KOMUNIKAT BRAKU WYNIKÓW -->
+            <div id="emptyResultsMessage" class="empty-state" style="display: none;">
+                <p>Nie znaleziono gier spełniających wybrane kryteria.</p>
+            </div>
+        </section>
+
+        <!-- TAB 2: WYKRESY I PORÓWNANIA -->
+        <section id="tabViewCharts" class="main-tab-view" style="display: none;">
+            <div class="charts-overview-container">
+                <div class="chart-box">
+                    <h3>Porównanie profili graczy</h3>
+                    <p class="modal-hint">Zestawienie statystyk i wykresy porównawcze bibliotek graczy.</p>
+                    <div id="chartsComparisonContent" class="charts-comparison-content">
+                        <!-- Wypełniane dynamicznie w JS -->
+                    </div>
+                </div>
+            </div>
+        </section>
     </main>
 
-    <!-- 3. MODAL: SZCZEGÓŁY GRY -->
+    <!-- 3. MODAL: SZCZEGÓŁY GRY (ZWIĘZŁY) -->
     <div id="gameDetailsModal" class="modal-backdrop" style="display: none;">
-        <div class="modal-window">
+        <div class="modal-window modal-details">
             <div class="modal-header">
                 <h2 id="modalGameTitle">Szczegóły gry</h2>
-                <button class="modal-close-btn" data-close="gameDetailsModal">[x]</button>
             </div>
             <div class="modal-body" id="modalGameBody">
                 <!-- Treść wypełniana dynamicznie w JS -->
@@ -140,18 +236,17 @@
         </div>
     </div>
 
-    <!-- 4. MODAL: LOGOWANIE ADMINISTRATORA -->
+    <!-- 4. MODAL: AUTORYZACJA I HASŁO DOSTĘPU -->
     <div id="adminLoginModal" class="modal-backdrop" style="display: none;">
         <div class="modal-window modal-small">
             <div class="modal-header">
-                <h2>Autoryzacja Administratora</h2>
-                <button class="modal-close-btn" data-close="adminLoginModal">[x]</button>
+                <h2>Autoryzacja i hasło dostępu</h2>
             </div>
             <form id="adminLoginForm">
                 <div class="modal-body">
                     <p class="modal-hint">Podaj hasło administratora, aby uzyskać uprawnienia do zapisu, edycji i zarządzania użytkownikami.</p>
                     <div class="form-group">
-                        <label for="adminPasswordInput">Hasło dostępu:</label>
+                        <label for="adminPasswordInput">Hasło:</label>
                         <input type="password" id="adminPasswordInput" class="form-input" required autocomplete="current-password">
                     </div>
                     <div id="adminLoginError" class="form-error" style="display: none;"></div>
@@ -169,7 +264,6 @@
         <div class="modal-window modal-large">
             <div class="modal-header">
                 <h2 id="gameEditModalTitle">Dodaj grę do bazy</h2>
-                <button class="modal-close-btn" data-close="gameEditModal">[x]</button>
             </div>
             <form id="gameEditForm">
                 <input type="hidden" id="formGameId">
@@ -240,12 +334,11 @@
         </div>
     </div>
 
-    <!-- 6. MODAL: ZARZĄDZANIE SŁOWNIKAMI I STATYSTYKI -->
+    <!-- 6. MODAL: USTAWIENIA I STATYSTYKI -->
     <div id="statsModal" class="modal-backdrop" style="display: none;">
         <div class="modal-window modal-large">
             <div class="modal-header">
-                <h2>Statystyki i Słowniki Bazy</h2>
-                <button class="modal-close-btn" data-close="statsModal">[x]</button>
+                <h2>Ustawienia i Statystyki Bazy</h2>
             </div>
             <div class="modal-body">
                 <div class="tabs-nav">
@@ -305,7 +398,6 @@
         <div class="modal-window modal-small">
             <div class="modal-header">
                 <h2>Dodaj Nowego Użytkownika</h2>
-                <button class="modal-close-btn" data-close="addUserModal">[x]</button>
             </div>
             <form id="addUserForm">
                 <div class="modal-body">
@@ -320,7 +412,7 @@
                     </div>
                     <div class="form-group">
                         <label for="newUserColor">Kolor zakładki arkusza</label>
-                        <input type="color" id="newUserColor" class="form-color" value="#2c3e50">
+                        <input type="color" id="newUserColor" class="form-color" value="#2a4365">
                     </div>
                     <div id="addUserError" class="form-error" style="display: none;"></div>
                 </div>
@@ -332,8 +424,30 @@
         </div>
     </div>
 
-    <!-- STOPKA -->
-    <footer class="app-footer">
+    <!-- 8. MODAL: EDYCJA GABLOTY WYRÓŻNIONYCH GIER -->
+    <div id="showcaseEditModal" class="modal-backdrop" style="display: none;">
+        <div class="modal-window modal-large">
+            <div class="modal-header">
+                <h2>Edycja gabloty wyróżnionych gier</h2>
+            </div>
+            <div class="modal-body">
+                <p class="modal-hint">Zaznacz gry ze swojej biblioteki, które mają być prezentowane w gablocie na Twoim profilu.</p>
+                <div class="form-group">
+                    <input type="text" id="showcaseSearchInput" class="form-input" placeholder="Filtruj listę gier...">
+                </div>
+                <div id="showcaseGamesChecklist" class="showcase-checklist">
+                    <!-- Lista checkboxów generowana dynamicznie -->
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn-secondary" data-close="showcaseEditModal">Anuluj</button>
+                <button type="button" id="btnSaveShowcase" class="btn-primary">Zapisz gablotę</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- STOPKA (Ukryta na ekranie powitalnym) -->
+    <footer class="app-footer" id="appFooter" style="display: none;">
         <div class="footer-content">
             <span>NKMM Baza Gier - Osobisty rejestr rozgrywek</span>
             <span class="footer-links">

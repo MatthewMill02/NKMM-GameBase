@@ -1,23 +1,26 @@
 /**
  * NKMM Baza Gier - Główny skrypt aplikacji (ES6+)
- * Wytyczne: Czysty JavaScript, brak emotek, obsługa losowego rozmieszczania głów,
- * dynamiczne przełączanie widoków, komunikacja JSONP z Google Apps Script,
- * pełne cachowanie danych w ramach sesji (sessionStorage + pamięć) w celu ochrony limitów API.
+ * Wytyczne: Czysty JavaScript, brak emotek, optymalizacja mobilna,
+ * optymistyczna synchronizacja w tle (Optimistic UI) z kolejką zadań,
+ * belka profilu ze statystykami i edytowalną gablotą gier (w stylu Steam),
+ * 2 główne zakładki: Baza gier oraz Wykresy.
  */
 
 // Adres wdrożonej aplikacji Google Apps Script
 const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwMoziDDLE2_1OcBPpwt4kNhF1jLmbPkumknpOmAeAgsJ5W_Vud6V12WrLjbOrJo43e/exec";
 
-// Klucze pamięci sesyjnej
+// Klucze pamięci sesyjnej i lokalnej
 const CACHE_KEYS = {
     USERS: "nkmm_cache_users",
     GAMES_PREFIX: "nkmm_cache_games_",
-    SETTINGS: "nkmm_cache_settings"
+    SETTINGS: "nkmm_cache_settings",
+    SHOWCASE_PREFIX: "nkmm_showcase_"
 };
 
 // Stan aplikacji
 const state = {
     currentScreen: "welcome", // "welcome" | "dashboard"
+    currentTab: "tabViewGames", // "tabViewGames" | "tabViewCharts"
     currentUser: null,
     users: [
         { code: "MM", name: "MatthewMill (MM)", sheetName: "Baza gier MM", avatar: "assets/matthewmill.PNG", color: "#13a71f", hoverColor: "#0f8518" },
@@ -30,6 +33,9 @@ const state = {
         settings: null,
         users: null
     },
+    // Kolejka synchronizacji zadań w tle
+    syncQueue: [],
+    isSyncing: false,
     settings: {
         stan: { headers: [], rows: [] },
         kolekcje: { headers: [], rows: [] },
@@ -42,9 +48,9 @@ const state = {
     adminPassword: "",
     filters: {
         search: "",
-        status: "",
-        platform: "",
-        collection: "",
+        statuses: new Set(),
+        platforms: new Set(),
+        collections: new Set(),
         sort: "title_asc"
     }
 };
@@ -56,11 +62,7 @@ const state = {
 document.addEventListener("DOMContentLoaded", () => {
     initEvents();
     initSessionCache();
-    renderWelcomeHeads();
-    
-    // Wstępne wczytanie (z pamięci sesji lub w tle z API)
-    fetchUsersList(false);
-    fetchSettingsAndStats(false);
+    showWelcomeScreen();
 });
 
 function initEvents() {
@@ -71,17 +73,67 @@ function initEvents() {
         showWelcomeScreen();
     });
 
-    // Przycisk wymuszonego odświeżenia danych z chmury (ominięcie cache)
+    // Przycisk wymuszonego odświeżenia danych
     document.getElementById("btnRefreshData").addEventListener("click", handleForceRefreshAll);
 
-    // Przełącznik użytkownika w nagłówku
-    document.getElementById("headerUserSelect").addEventListener("change", (e) => {
-        const selectedCode = e.target.value;
-        const user = state.users.find(u => u.code === selectedCode);
-        if (user) switchUserProfile(user);
+    // Rozwijane menu profili w nagłówku
+    const profileBtn = document.getElementById("activeProfileBtn");
+    const profileMenu = document.getElementById("profileDropdownMenu");
+
+    profileBtn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const isOpen = profileMenu.style.display === "block";
+        profileMenu.style.display = isOpen ? "none" : "block";
     });
 
-    // Wyszukiwarka i sortowanie
+    // Panel kolejki synchronizacji
+    const syncStatusBtn = document.getElementById("btnSyncStatus");
+    const syncQueuePanel = document.getElementById("syncQueuePanel");
+
+    syncStatusBtn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const isOpen = syncQueuePanel.style.display === "block";
+        syncQueuePanel.style.display = isOpen ? "none" : "block";
+    });
+
+    // Filtry - rozwijane checklisty
+    setupFilterDropdown("btnFilterStatus", "menuFilterStatus");
+    setupFilterDropdown("btnFilterPlatform", "menuFilterPlatform");
+    setupFilterDropdown("btnFilterCollection", "menuFilterCollection");
+
+    // Zamykanie rozwijanych menu po kliknięciu poza nimi
+    document.addEventListener("click", (e) => {
+        if (!e.target.closest(".profile-dropdown-wrapper")) {
+            profileMenu.style.display = "none";
+        }
+        if (!e.target.closest(".sync-status-wrapper")) {
+            syncQueuePanel.style.display = "none";
+        }
+        if (!e.target.closest(".filter-dropdown-wrapper")) {
+            closeAllFilterDropdowns();
+        }
+    });
+
+    // GŁÓWNE ZAKŁADKI NAWIGACJI (TABY)
+    document.querySelectorAll(".main-tab-btn").forEach(btn => {
+        btn.addEventListener("click", () => {
+            const targetTab = btn.getAttribute("data-target");
+            switchMainTab(targetTab);
+        });
+    });
+
+    // Gablota - edycja
+    document.getElementById("btnEditShowcase").addEventListener("click", openShowcaseEditModal);
+    document.getElementById("btnSaveShowcase").addEventListener("click", handleSaveShowcase);
+
+    const showcaseSearchInput = document.getElementById("showcaseSearchInput");
+    if (showcaseSearchInput) {
+        showcaseSearchInput.addEventListener("input", (e) => {
+            filterShowcaseChecklist(e.target.value.trim().toLowerCase());
+        });
+    }
+
+    // Wyszukiwarka i sortowanie w bazie gier
     const searchInput = document.getElementById("searchInput");
     const clearSearchBtn = document.getElementById("btnClearSearch");
 
@@ -103,22 +155,9 @@ function initEvents() {
         renderGamesGrid();
     });
 
-    // Filtry
-    document.getElementById("filterStatus").addEventListener("change", (e) => {
-        state.filters.status = e.target.value;
-        renderGamesGrid();
-    });
-    document.getElementById("filterPlatform").addEventListener("change", (e) => {
-        state.filters.platform = e.target.value;
-        renderGamesGrid();
-    });
-    document.getElementById("filterCollection").addEventListener("change", (e) => {
-        state.filters.collection = e.target.value;
-        renderGamesGrid();
-    });
     document.getElementById("btnResetFilters").addEventListener("click", resetFilters);
 
-    // Modale - zamykanie
+    // Modale - zamykanie (tylko przyciski w stopce lub kliknięcie w tło)
     document.querySelectorAll("[data-close]").forEach(btn => {
         btn.addEventListener("click", (e) => {
             const modalId = e.currentTarget.getAttribute("data-close");
@@ -126,7 +165,6 @@ function initEvents() {
         });
     });
 
-    // Kliknięcie w tło modala
     document.querySelectorAll(".modal-backdrop").forEach(modal => {
         modal.addEventListener("click", (e) => {
             if (e.target === modal) closeModal(modal.id);
@@ -146,7 +184,7 @@ function initEvents() {
     document.getElementById("btnOpenAddUserModal").addEventListener("click", () => openModal("addUserModal"));
     document.getElementById("addUserForm").addEventListener("submit", handleAddUserSubmit);
 
-    // Statystyki
+    // Statystyki / Ustawienia
     document.getElementById("btnToggleStats").addEventListener("click", openStatsModal);
     initStatsTabs();
 
@@ -155,7 +193,7 @@ function initEvents() {
     document.getElementById("btnAddKol").addEventListener("click", () => handleAddSetting("Kolekcje", "newKolVal", "newKolDesc"));
     document.getElementById("btnAddPlat").addEventListener("click", () => handleAddSetting("Platformy", "newPlatVal"));
 
-    // Zmiana rozmiaru okna - przeliczenie pozycji głów
+    // Zmiana rozmiaru okna
     window.addEventListener("resize", () => {
         if (state.currentScreen === "welcome") {
             renderWelcomeHeads();
@@ -169,7 +207,6 @@ function initEvents() {
 
 function initSessionCache() {
     try {
-        // Wczytanie listy użytkowników z sesji
         const cachedUsers = sessionStorage.getItem(CACHE_KEYS.USERS);
         if (cachedUsers) {
             const parsed = JSON.parse(cachedUsers);
@@ -179,7 +216,6 @@ function initSessionCache() {
             }
         }
 
-        // Wczytanie słowników i statystyk z sesji
         const cachedSettings = sessionStorage.getItem(CACHE_KEYS.SETTINGS);
         if (cachedSettings) {
             const parsed = JSON.parse(cachedSettings);
@@ -262,11 +298,126 @@ async function handleForceRefreshAll() {
     }
 
     btn.disabled = false;
-    btn.textContent = "[Odśwież z chmury]";
+    btn.textContent = "[Odśwież]";
 }
 
 // ===================================================
-// EKRAN POWITALNY - LOSOWE ROZMIESZCZENIE GŁÓWEK
+// SYSTEM KOLEJKI SYNCHRONIZACJI W TLE (OPTIMISTIC UI)
+// ===================================================
+
+function enqueueSyncTask(title, executeFn, rollbackFn) {
+    const task = {
+        id: "task_" + Date.now() + "_" + Math.round(Math.random() * 1000),
+        title: title,
+        executeFn: executeFn,
+        rollbackFn: rollbackFn,
+        status: "pending",
+        errorMsg: "",
+        createdAt: new Date()
+    };
+
+    state.syncQueue.push(task);
+    updateSyncQueueUi();
+    processSyncQueue();
+}
+
+async function processSyncQueue() {
+    if (state.isSyncing) return;
+
+    const pendingTask = state.syncQueue.find(t => t.status === "pending");
+    if (!pendingTask) {
+        updateSyncQueueUi();
+        return;
+    }
+
+    state.isSyncing = true;
+    pendingTask.status = "in_progress";
+    updateSyncQueueUi();
+
+    try {
+        const response = await pendingTask.executeFn();
+
+        if (response && response.status === "success") {
+            pendingTask.status = "done";
+            updateSyncQueueUi();
+
+            setTimeout(() => {
+                state.syncQueue = state.syncQueue.filter(t => t.id !== pendingTask.id);
+                updateSyncQueueUi();
+            }, 4000);
+        } else {
+            throw new Error((response && response.message) || "Błąd zapisu na serwerze.");
+        }
+    } catch (err) {
+        pendingTask.status = "error";
+        pendingTask.errorMsg = err.message;
+        updateSyncQueueUi();
+
+        if (typeof pendingTask.rollbackFn === "function") {
+            pendingTask.rollbackFn();
+        }
+
+        alert(`Błąd synchronizacji w tle:\n"${pendingTask.title}" nie powiodło się.\n\nPowód: ${err.message}`);
+    } finally {
+        state.isSyncing = false;
+        processSyncQueue();
+    }
+}
+
+function updateSyncQueueUi() {
+    const syncStatusImg = document.getElementById("syncStatusImg");
+    const syncQueueCount = document.getElementById("syncQueueCount");
+    const syncQueueList = document.getElementById("syncQueueList");
+
+    const pendingOrProgressCount = state.syncQueue.filter(t => t.status === "pending" || t.status === "in_progress").length;
+
+    if (pendingOrProgressCount > 0) {
+        if (syncStatusImg) syncStatusImg.src = "assets/sync.gif";
+    } else {
+        if (syncStatusImg) syncStatusImg.src = "assets/sync.png";
+    }
+
+    if (syncQueueCount) {
+        syncQueueCount.textContent = `${state.syncQueue.length} zadań`;
+    }
+
+    if (state.syncQueue.length === 0) {
+        if (syncQueueList) syncQueueList.innerHTML = '<p class="queue-empty-msg">Wszystkie zmiany są zsynchronizowane.</p>';
+        return;
+    }
+
+    if (syncQueueList) {
+        syncQueueList.innerHTML = "";
+        state.syncQueue.forEach(task => {
+            const item = document.createElement("div");
+            item.className = "queue-item";
+
+            let statusClass = "queue-status-pending";
+            let statusLabel = "W kolejce";
+
+            if (task.status === "in_progress") {
+                statusClass = "queue-status-progress";
+                statusLabel = "W toku...";
+            } else if (task.status === "done") {
+                statusClass = "queue-status-done";
+                statusLabel = "Zapisano";
+            } else if (task.status === "error") {
+                statusClass = "queue-status-error";
+                statusLabel = "Błąd";
+            }
+
+            item.innerHTML = `
+                <span class="queue-item-name" title="${escapeHtml(task.title)}">${escapeHtml(task.title)}</span>
+                <span class="queue-item-status ${statusClass}">${statusLabel}</span>
+            `;
+
+            syncQueueList.appendChild(item);
+        });
+    }
+}
+
+// ===================================================
+// EKRAN POWITALNY - WYBÓR PROFILU GRACZA
 // ===================================================
 
 function renderWelcomeHeads() {
@@ -279,16 +430,15 @@ function renderWelcomeHeads() {
     const containerRect = container.getBoundingClientRect();
     const boxRect = centerBox.getBoundingClientRect();
 
-    const headWidth = 110;
-    const headHeight = 120;
-    const padding = 20;
+    const headWidth = 100;
+    const headHeight = 100;
+    const padding = 16;
 
-    // Obszar wyłączony (środkowy box z nagłówkiem)
     const forbiddenZone = {
-        left: (boxRect.left - containerRect.left) - 30,
-        top: (boxRect.top - containerRect.top) - 30,
-        right: (boxRect.right - containerRect.left) + 30,
-        bottom: (boxRect.bottom - containerRect.top) + 30
+        left: (boxRect.left - containerRect.left) - 20,
+        top: (boxRect.top - containerRect.top) - 20,
+        right: (boxRect.right - containerRect.left) + 20,
+        bottom: (boxRect.bottom - containerRect.top) + 20
     };
 
     const placedPositions = [];
@@ -307,7 +457,6 @@ function renderWelcomeHeads() {
             x = Math.floor(Math.random() * (maxX - padding)) + padding;
             y = Math.floor(Math.random() * (maxY - padding)) + padding;
 
-            // Sprawdzenie kolizji ze środkowym nagłówkiem
             const overlapsCenter = (
                 x + headWidth > forbiddenZone.left &&
                 x < forbiddenZone.right &&
@@ -315,9 +464,8 @@ function renderWelcomeHeads() {
                 y < forbiddenZone.bottom
             );
 
-            // Sprawdzenie kolizji z innymi główkami
             const overlapsOther = placedPositions.some(pos => {
-                return Math.abs(pos.x - x) < (headWidth + 20) && Math.abs(pos.y - y) < (headHeight + 20);
+                return Math.abs(pos.x - x) < (headWidth + 16) && Math.abs(pos.y - y) < (headHeight + 16);
             });
 
             if (!overlapsCenter && !overlapsOther) {
@@ -327,17 +475,18 @@ function renderWelcomeHeads() {
 
         placedPositions.push({ x, y });
 
-        // Tworzenie kafelka główki
         const card = document.createElement("div");
         card.className = "scatter-head-card";
         card.style.left = `${x}px`;
         card.style.top = `${y}px`;
+        if (user.color) {
+            card.style.borderTopColor = user.color;
+        }
         card.setAttribute("title", `Kliknij, aby otworzyć bazę gracza: ${user.name}`);
 
         card.innerHTML = `
             <img src="${user.avatar}" alt="${user.code}" class="scatter-head-img" onerror="this.src='assets/matthewmill.PNG'">
             <span class="scatter-head-name">${user.name}</span>
-            <span class="scatter-head-code">${user.sheetName}</span>
         `;
 
         card.addEventListener("click", () => {
@@ -361,21 +510,237 @@ function applyUserTheme(user) {
 function showWelcomeScreen() {
     state.currentScreen = "welcome";
     applyUserTheme(null);
+
+    document.getElementById("appHeader").style.display = "none";
+    document.getElementById("appFooter").style.display = "none";
     document.getElementById("welcomeScreen").style.display = "flex";
     document.getElementById("dashboardScreen").style.display = "none";
-    document.getElementById("activeProfileIndicator").style.display = "none";
-    document.getElementById("userQuickSwitch").style.display = "none";
-    document.getElementById("btnToggleStats").style.display = "none";
+
     renderWelcomeHeads();
 }
 
 function showDashboardScreen() {
     state.currentScreen = "dashboard";
+
+    document.getElementById("appHeader").style.display = "flex";
+    document.getElementById("appFooter").style.display = "block";
     document.getElementById("welcomeScreen").style.display = "none";
     document.getElementById("dashboardScreen").style.display = "block";
-    document.getElementById("activeProfileIndicator").style.display = "flex";
-    document.getElementById("userQuickSwitch").style.display = "flex";
-    document.getElementById("btnToggleStats").style.display = "inline-block";
+
+    switchMainTab(state.currentTab);
+}
+
+// ===================================================
+// GŁÓWNE ZAKŁADKI NAWIGACJI (TABY)
+// ===================================================
+
+function switchMainTab(targetTabId) {
+    state.currentTab = targetTabId;
+
+    document.querySelectorAll(".main-tab-btn").forEach(btn => {
+        if (btn.getAttribute("data-target") === targetTabId) {
+            btn.classList.add("active");
+        } else {
+            btn.classList.remove("active");
+        }
+    });
+
+    document.querySelectorAll(".main-tab-view").forEach(view => {
+        if (view.id === targetTabId) {
+            view.style.display = "block";
+        } else {
+            view.style.display = "none";
+        }
+    });
+
+    if (targetTabId === "tabViewCharts") {
+        renderChartsComparisonSection();
+    }
+}
+
+// ===================================================
+// BELKA PROFILU: STATYSTYKI I GABLOTA
+// ===================================================
+
+function updateProfileBanner() {
+    if (!state.currentUser) return;
+
+    const user = state.currentUser;
+    document.getElementById("bannerProfileAvatar").src = user.avatar;
+    document.getElementById("bannerProfileName").textContent = user.name;
+    document.getElementById("bannerProfileSheet").textContent = user.sheetName;
+
+    // Obliczanie statystyk
+    const totalGames = state.games.length;
+    
+    let totalHours = 0;
+    let sumRatings = 0;
+    let ratedCount = 0;
+    let completedCount = 0;
+
+    const completedStates = ["Ukończona", "Ukończona+", "100'%", "100%", "PLATYNA"];
+
+    state.games.forEach(g => {
+        const hours = parseFloat(g["Liczba godzin"]) || 0;
+        totalHours += hours;
+
+        const rating = parseFloat(g["Ocena gry"]);
+        if (!isNaN(rating)) {
+            sumRatings += rating;
+            ratedCount++;
+        }
+
+        const st = (g["Stan"] || "").trim();
+        if (completedStates.includes(st)) {
+            completedCount++;
+        }
+    });
+
+    const avgRating = ratedCount > 0 ? (sumRatings / ratedCount).toFixed(2) : "-";
+
+    document.getElementById("statTotalGames").textContent = totalGames;
+    document.getElementById("statCompletedGames").textContent = completedCount;
+    document.getElementById("statTotalHours").textContent = `${Math.round(totalHours)}h`;
+    document.getElementById("statAvgRating").textContent = avgRating;
+
+    renderProfileShowcase();
+}
+
+function getShowcaseGameIds(userCode) {
+    try {
+        const key = CACHE_KEYS.SHOWCASE_PREFIX + userCode;
+        const stored = localStorage.getItem(key);
+        if (stored) {
+            return JSON.parse(stored);
+        }
+    } catch (e) {}
+    return [];
+}
+
+function saveShowcaseGameIds(userCode, ids) {
+    try {
+        const key = CACHE_KEYS.SHOWCASE_PREFIX + userCode;
+        localStorage.setItem(key, JSON.stringify(ids));
+    } catch (e) {}
+}
+
+function renderProfileShowcase() {
+    const grid = document.getElementById("showcaseGrid");
+    if (!grid || !state.currentUser) return;
+
+    const featuredIds = getShowcaseGameIds(state.currentUser.code);
+
+    if (featuredIds.length === 0) {
+        grid.innerHTML = '<p class="showcase-empty-hint">Brak wyróżnionych gier w gablocie.</p>';
+        return;
+    }
+
+    const showcaseGames = state.games.filter(g => featuredIds.includes(String(g.id)));
+
+    if (showcaseGames.length === 0) {
+        grid.innerHTML = '<p class="showcase-empty-hint">Brak wyróżnionych gier w gablocie.</p>';
+        return;
+    }
+
+    grid.innerHTML = "";
+    showcaseGames.forEach(game => {
+        const card = document.createElement("div");
+        card.className = "showcase-card";
+        
+        const title = escapeHtml(game["Tytuł"] || "Brak tytułu");
+        const rawRating = game["Ocena gry"];
+        const hasRating = rawRating !== "" && rawRating !== undefined && rawRating !== null && rawRating !== "-";
+        const rating = hasRating ? `${rawRating}/10` : "";
+        const ratingBadgeHtml = hasRating ? `<span class="game-rating-badge">${rating}</span>` : "";
+        const platform = escapeHtml(game["Platforma"] || "-");
+        const status = escapeHtml(game["Stan"] || "-");
+
+        card.innerHTML = `
+            <div class="showcase-title" title="${title}">${title}</div>
+            <div class="showcase-meta">
+                <span>${platform} | ${status}</span>
+                ${ratingBadgeHtml}
+            </div>
+        `;
+
+        card.addEventListener("click", () => {
+            openGameDetailsModal(game);
+        });
+
+        grid.appendChild(card);
+    });
+}
+
+function openShowcaseEditModal() {
+    if (!state.currentUser || !state.isAdmin) return;
+
+    const checklist = document.getElementById("showcaseGamesChecklist");
+    const searchInput = document.getElementById("showcaseSearchInput");
+    if (searchInput) searchInput.value = "";
+
+    const selectedIds = getShowcaseGameIds(state.currentUser.code);
+
+    checklist.innerHTML = "";
+    state.games.forEach(game => {
+        const label = document.createElement("label");
+        label.className = "showcase-check-item";
+        const isChecked = selectedIds.includes(String(game.id));
+
+        label.innerHTML = `
+            <input type="checkbox" value="${escapeHtml(String(game.id))}" ${isChecked ? "checked" : ""}>
+            <span><strong>${escapeHtml(game["Tytuł"] || "Brak")}</strong> (${escapeHtml(game["Platforma"] || "-")} - ${game["Ocena gry"] || "-"})</span>
+        `;
+
+        checklist.appendChild(label);
+    });
+
+    openModal("showcaseEditModal");
+}
+
+function filterShowcaseChecklist(query) {
+    const items = document.querySelectorAll(".showcase-check-item");
+    items.forEach(item => {
+        const text = item.textContent.toLowerCase();
+        item.style.display = text.includes(query) ? "flex" : "none";
+    });
+}
+
+function handleSaveShowcase() {
+    if (!state.currentUser) return;
+
+    const checkboxes = document.querySelectorAll("#showcaseGamesChecklist input[type='checkbox']:checked");
+    const selectedIds = Array.from(checkboxes).map(cb => cb.value);
+
+    saveShowcaseGameIds(state.currentUser.code, selectedIds);
+    renderProfileShowcase();
+    closeModal("showcaseEditModal");
+}
+
+// ===================================================
+// SEKCJA WYKRESÓW I PORÓWNAŃ (TAB 2)
+// ===================================================
+
+function renderChartsComparisonSection() {
+    const container = document.getElementById("chartsComparisonContent");
+    if (!container) return;
+
+    let html = `
+        <div style="margin-top: 14px; display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 14px;">
+            <div style="background: var(--color-bg); padding: 14px; border: 1px solid var(--color-border); border-radius: 6px;">
+                <h4 style="color: var(--color-text-main); margin-bottom: 10px;">Zestawienie średnich ocen</h4>
+                <div id="chartsSredniaMini"></div>
+            </div>
+            <div style="background: var(--color-bg); padding: 14px; border: 1px solid var(--color-border); border-radius: 6px;">
+                <h4 style="color: var(--color-text-main); margin-bottom: 10px;">Liczba ukończonych gier wg platform</h4>
+                <div id="chartsPlatformyMini"></div>
+            </div>
+        </div>
+    `;
+
+    container.innerHTML = html;
+
+    renderTable("chartsSredniaMini", state.settings.sredniaOcen);
+    renderTable("chartsPlatformyMini", state.settings.platformy);
 }
 
 // ===================================================
@@ -387,28 +752,36 @@ function switchUserProfile(user) {
     applyUserTheme(user);
     showDashboardScreen();
 
-    // Aktualizacja wskaźnika w nagłówku
     document.getElementById("activeProfileAvatar").src = user.avatar;
     document.getElementById("activeProfileName").textContent = user.name;
 
-    // Aktualizacja selektora w nagłówku
-    populateHeaderUserSelect();
-
-    // Pobranie gier (z cache lub z API jeśli brak w sesji)
+    renderProfileDropdownMenu();
     loadGamesForUser(user.sheetName, false);
 }
 
-function populateHeaderUserSelect() {
-    const select = document.getElementById("headerUserSelect");
-    select.innerHTML = "";
-    state.users.forEach(u => {
-        const opt = document.createElement("option");
-        opt.value = u.code;
-        opt.textContent = u.name;
-        if (state.currentUser && state.currentUser.code === u.code) {
-            opt.selected = true;
-        }
-        select.appendChild(opt);
+function renderProfileDropdownMenu() {
+    const menu = document.getElementById("profileDropdownMenu");
+    menu.innerHTML = "";
+
+    const otherUsers = state.users.filter(u => !state.currentUser || u.code !== state.currentUser.code);
+
+    if (otherUsers.length === 0) {
+        menu.innerHTML = '<div style="padding:10px 14px; font-size:13px; color:#888;">Brak innych profili</div>';
+        return;
+    }
+
+    otherUsers.forEach(u => {
+        const item = document.createElement("button");
+        item.className = "profile-menu-item";
+        item.innerHTML = `
+            <img src="${u.avatar}" alt="${u.code}" class="mini-avatar" onerror="this.src='assets/matthewmill.PNG'">
+            <span>${escapeHtml(u.name)}</span>
+        `;
+        item.addEventListener("click", () => {
+            menu.style.display = "none";
+            switchUserProfile(u);
+        });
+        menu.appendChild(item);
     });
 }
 
@@ -421,29 +794,33 @@ async function fetchUsersList(forceRefresh = false) {
     try {
         const response = await sendApiRequest({ action: "getAllUsers" });
         if (response.status === "success" && Array.isArray(response.data) && response.data.length > 0) {
+            let usersChanged = false;
+
             response.data.forEach(remoteUser => {
                 let existing = state.users.find(u => u.code === remoteUser.code);
+                const isMM = remoteUser.code === "MM";
+                const isNK = remoteUser.code === "NK";
+                const defaultName = isMM ? "MatthewMill (MM)" : (isNK ? "R4sheg (NK)" : `${remoteUser.name} (${remoteUser.code})`);
+                const defaultColor = isMM ? "#13a71f" : (isNK ? "#A81214" : (remoteUser.tabColor || "#2a4365"));
+                const defaultHover = isMM ? "#0f8518" : (isNK ? "#860e10" : (remoteUser.tabColor || "#1e314b"));
+
                 if (!existing) {
-                    const isMM = remoteUser.code === "MM";
-                    const isNK = remoteUser.code === "NK";
                     existing = {
                         code: remoteUser.code,
-                        name: isMM ? "MatthewMill (MM)" : (isNK ? "R4sheg (NK)" : `${remoteUser.name} (${remoteUser.code})`),
+                        name: defaultName,
                         sheetName: remoteUser.sheetName,
                         avatar: isMM ? "assets/matthewmill.PNG" : (isNK ? "assets/rasheg.PNG" : "assets/matthewmill.PNG"),
-                        color: isMM ? "#13a71f" : (isNK ? "#A81214" : (remoteUser.tabColor || "#2a4365")),
-                        hoverColor: isMM ? "#0f8518" : (isNK ? "#860e10" : (remoteUser.tabColor || "#1e314b"))
+                        color: defaultColor,
+                        hoverColor: defaultHover
                     };
                     state.users.push(existing);
+                    usersChanged = true;
                 } else {
-                    if (remoteUser.code === "MM") {
-                        existing.name = "MatthewMill (MM)";
-                        existing.color = "#13a71f";
-                        existing.hoverColor = "#0f8518";
-                    } else if (remoteUser.code === "NK") {
-                        existing.name = "R4sheg (NK)";
-                        existing.color = "#A81214";
-                        existing.hoverColor = "#860e10";
+                    if (existing.name !== defaultName || existing.color !== defaultColor) {
+                        existing.name = defaultName;
+                        existing.color = defaultColor;
+                        existing.hoverColor = defaultHover;
+                        usersChanged = true;
                     }
                 }
             });
@@ -453,10 +830,13 @@ async function fetchUsersList(forceRefresh = false) {
                 sessionStorage.setItem(CACHE_KEYS.USERS, JSON.stringify(state.users));
             } catch (e) {}
 
-            if (state.currentScreen === "welcome") {
-                renderWelcomeHeads();
+            // Re-renderuj tylko jeśli lista użytkowników rzeczywiście uległa zmianie
+            if (usersChanged) {
+                if (state.currentScreen === "welcome") {
+                    renderWelcomeHeads();
+                }
+                renderProfileDropdownMenu();
             }
-            populateHeaderUserSelect();
         }
     } catch (e) {
         console.warn("Użyto lokalnej konfiguracji użytkowników.");
@@ -464,36 +844,98 @@ async function fetchUsersList(forceRefresh = false) {
 }
 
 // ===================================================
-// KOMUNIKACJA SIECIOWA (JSONP API)
+// KOMUNIKACJA SIECIOWA (FETCH CORS + JSONP FALLBACK)
 // ===================================================
 
-function sendApiRequest(params, customPassword = null) {
+async function sendApiRequest(params, customPassword = null, timeoutMs = 25000) {
+    const passwordToSend = customPassword !== null ? customPassword : state.adminPassword;
+    const queryParams = new URLSearchParams(params);
+    if (passwordToSend) {
+        queryParams.append("pass", passwordToSend);
+    }
+    const url = GOOGLE_SCRIPT_URL + "?" + queryParams.toString();
+
+    // 1. Próba natywnego fetch() (tylko na serwerze http/https, pomijane na lokalnym file://)
+    if (window.location.protocol === "http:" || window.location.protocol === "https:") {
+        try {
+            const controller = new AbortController();
+            const timer = setTimeout(() => controller.abort(), timeoutMs);
+            const res = await fetch(url, {
+                method: "GET",
+                redirect: "follow",
+                signal: controller.signal
+            });
+            clearTimeout(timer);
+            if (res.ok) {
+                const data = await res.json();
+                return data;
+            }
+        } catch (fetchErr) {
+            // Jeśli przeglądarka zablokowała fetch, przechodzimy do JSONP
+        }
+    }
+
+    // 2. Fallback: JSONP
     return new Promise((resolve, reject) => {
         const callbackName = "jsonp_cb_" + Math.round(1000000 * Math.random());
-        const passwordToSend = customPassword !== null ? customPassword : state.adminPassword;
+        const jsonpParams = new URLSearchParams(params);
+        jsonpParams.append("callback", callbackName);
+        if (passwordToSend) {
+            jsonpParams.append("pass", passwordToSend);
+        }
+
+        let isDone = false;
+        let timer = null;
+
+        const cleanup = () => {
+            if (timer) clearTimeout(timer);
+            delete window[callbackName];
+            const el = document.getElementById(callbackName);
+            if (el && el.parentNode) el.parentNode.removeChild(el);
+        };
 
         window[callbackName] = function(data) {
-            delete window[callbackName];
-            if (script.parentNode) script.parentNode.removeChild(script);
+            if (isDone) return;
+            isDone = true;
+            cleanup();
             resolve(data);
         };
 
-        const queryParams = new URLSearchParams(params);
-        queryParams.append("callback", callbackName);
-        if (passwordToSend) {
-            queryParams.append("pass", passwordToSend);
-        }
-
         const script = document.createElement("script");
-        script.src = GOOGLE_SCRIPT_URL + "?" + queryParams.toString();
+        script.id = callbackName;
+        script.src = GOOGLE_SCRIPT_URL + "?" + jsonpParams.toString();
         script.onerror = () => {
-            delete window[callbackName];
-            if (script.parentNode) script.parentNode.removeChild(script);
+            if (isDone) return;
+            isDone = true;
+            cleanup();
             reject(new Error("Błąd połączenia z serwerem Google Apps Script."));
         };
 
+        timer = setTimeout(() => {
+            if (isDone) return;
+            isDone = true;
+            cleanup();
+            reject(new Error("Przekroczono limit czasu oczekiwania na odpowiedź serwera."));
+        }, timeoutMs);
+
         document.body.appendChild(script);
     });
+}
+
+async function sendApiRequestWithRetry(params, customPassword = null, retries = 2) {
+    let lastError = null;
+    for (let attempt = 0; attempt <= retries; attempt++) {
+        try {
+            return await sendApiRequest(params, customPassword);
+        } catch (err) {
+            lastError = err;
+            if (attempt < retries) {
+                // Krótkie opóźnienie przed kolejną próbą (np. cold start)
+                await new Promise(r => setTimeout(r, 1200 * (attempt + 1)));
+            }
+        }
+    }
+    throw lastError;
 }
 
 // ===================================================
@@ -501,45 +943,53 @@ function sendApiRequest(params, customPassword = null) {
 // ===================================================
 
 async function loadGamesForUser(sheetName, forceRefresh = false) {
+    console.log("[NKMM Baza Gier] >>> loadGamesForUser wywołane dla arkusza:", sheetName, "forceRefresh:", forceRefresh);
     const skeletonLoader = document.getElementById("skeletonLoader");
     const gamesGrid = document.getElementById("gamesGrid");
     const emptyResults = document.getElementById("emptyResultsMessage");
     const resultsCount = document.getElementById("resultsCount");
 
-    // 1. Sprawdzenie pamięci podręcznej sesji
     if (!forceRefresh) {
         const cached = getCachedGames(sheetName);
         if (cached !== null) {
+            console.log("[NKMM Baza Gier] Wczytano z pamięci podręcznej (cache):", cached.length, "gier");
             state.games = cached;
+            updateProfileBanner();
             populateFilterOptions();
             renderGamesGrid();
             return;
         }
     }
 
-    // 2. Jeśli brak w pamięci lub wymuszone odświeżenie - pobranie z API
     skeletonLoader.style.display = "grid";
     gamesGrid.style.display = "none";
     emptyResults.style.display = "none";
     resultsCount.textContent = "Pobieranie bazy gier z chmury...";
 
     try {
-        const response = await sendApiRequest({
+        console.log("[NKMM Baza Gier] Wysyłanie zapytania getAllGames do Google Apps Script...");
+        const response = await sendApiRequestWithRetry({
             action: "getAllGames",
             user: sheetName
-        });
+        }, null, 2);
+
+        console.log("[NKMM Baza Gier] Odpowiedź serwera dla getAllGames:", response);
 
         if (response.status === "success") {
             state.games = Array.isArray(response.data) ? response.data : [];
+            console.log("[NKMM Baza Gier] Sukces pobierania! Liczba gier w bazie:", state.games.length);
             setCachedGames(sheetName, state.games);
+            updateProfileBanner();
             populateFilterOptions();
             renderGamesGrid();
         } else {
-            resultsCount.textContent = `Błąd: ${response.message}`;
+            console.error("[NKMM Baza Gier] Serwer zwrócił błąd w odpowiedzi:", response.message);
+            resultsCount.innerHTML = `Błąd: ${escapeHtml(response.message || "Nie udało się pobrać gier")} <button class="btn-link" onclick="loadGamesForUser('${escapeHtml(sheetName)}', true)" style="color: var(--color-primary); font-weight: bold; margin-left: 8px;">[Spróbuj ponownie]</button>`;
             skeletonLoader.style.display = "none";
         }
     } catch (error) {
-        resultsCount.textContent = "Błąd sieciowy podczas pobierania danych.";
+        console.error("[NKMM Baza Gier] Błąd sieciowy / wyjątek w loadGamesForUser:", error);
+        resultsCount.innerHTML = `Błąd sieciowy podczas pobierania danych. <button class="btn-link" onclick="loadGamesForUser('${escapeHtml(sheetName)}', true)" style="color: var(--color-primary); font-weight: bold; margin-left: 8px;">[Spróbuj ponownie]</button>`;
         skeletonLoader.style.display = "none";
     }
 }
@@ -552,10 +1002,22 @@ function renderGamesGrid() {
 
     skeletonLoader.style.display = "none";
 
+    const selectedStatuses = state.filters.statuses instanceof Set ? state.filters.statuses : new Set();
+    const selectedPlatforms = state.filters.platforms instanceof Set ? state.filters.platforms : new Set();
+    const selectedCollections = state.filters.collections instanceof Set ? state.filters.collections : new Set();
+
+    console.log("[NKMM Baza Gier] Rozpoczęto renderowanie siatki gier. Łącznie w state.games:", state.games.length);
+    console.log("[NKMM Baza Gier] Aktywne filtry:", {
+        search: state.filters.search,
+        statuses: Array.from(selectedStatuses),
+        platforms: Array.from(selectedPlatforms),
+        collections: Array.from(selectedCollections),
+        sort: state.filters.sort
+    });
+
     let filtered = state.games.filter(game => {
-        // Wyszukiwarka
         if (state.filters.search) {
-            const query = state.filters.search;
+            const query = state.filters.search.toLowerCase();
             const title = (game["Tytuł"] || "").toLowerCase();
             const platform = (game["Platforma"] || "").toLowerCase();
             const collections = (game["Kolekcje"] || "").toLowerCase();
@@ -564,25 +1026,28 @@ function renderGamesGrid() {
                 return false;
             }
         }
-        // Stan
-        if (state.filters.status && game["Stan"] !== state.filters.status) {
-            return false;
+        if (selectedStatuses.size > 0) {
+            const gameStatus = (game["Stan"] || "").trim();
+            if (!selectedStatuses.has(gameStatus)) {
+                return false;
+            }
         }
-        // Platforma
-        if (state.filters.platform && game["Platforma"] !== state.filters.platform) {
-            return false;
+        if (selectedPlatforms.size > 0) {
+            const gamePlatform = (game["Platforma"] || "").trim();
+            if (!selectedPlatforms.has(gamePlatform)) {
+                return false;
+            }
         }
-        // Kolekcje
-        if (state.filters.collection) {
+        if (selectedCollections.size > 0) {
             const col = game["Kolekcje"] || "";
-            if (!col.includes(state.filters.collection)) {
+            const matchesAny = Array.from(selectedCollections).some(c => col.includes(c));
+            if (!matchesAny) {
                 return false;
             }
         }
         return true;
     });
 
-    // Sortowanie
     filtered.sort((a, b) => {
         switch (state.filters.sort) {
             case "title_asc":
@@ -602,11 +1067,14 @@ function renderGamesGrid() {
         }
     });
 
+    console.log("[NKMM Baza Gier] Gry po przefiltrowaniu do wyświetlenia:", filtered.length);
+
     resultsCount.textContent = `Wyświetlono: ${filtered.length} z ${state.games.length} tytułów`;
 
     if (filtered.length === 0) {
         gamesGrid.style.display = "none";
         emptyResults.style.display = "block";
+        console.warn("[NKMM Baza Gier] Brak wyników do wyświetlenia po filtracji!");
         return;
     }
 
@@ -621,16 +1089,28 @@ function renderGamesGrid() {
         const title = escapeHtml(game["Tytuł"] || "Brak tytułu");
         const status = escapeHtml(game["Stan"] || "-");
         const platform = escapeHtml(game["Platforma"] || "-");
-        const rating = game["Ocena gry"] !== "" && game["Ocena gry"] !== undefined ? game["Ocena gry"] : "-";
+        const rawRating = game["Ocena gry"];
+        const hasRating = rawRating !== "" && rawRating !== undefined && rawRating !== null && rawRating !== "-";
+        const rating = hasRating ? `${rawRating}/10` : "";
+        
+        // 3 pod-oceny (Fabuła, Grafika, Mechanika)
+        const fabuła = game["Ocena fabuły"] !== "" && game["Ocena fabuły"] !== undefined ? `${game["Ocena fabuły"]}/10` : "-";
+        const grafika = game["Ocena grafiki"] !== "" && game["Ocena grafiki"] !== undefined ? `${game["Ocena grafiki"]}/10` : "-";
+        const mechanika = game["Ocena mechanik"] !== "" && game["Ocena mechanik"] !== undefined ? `${game["Ocena mechanik"]}/10` : "-";
+
         const hours = game["Liczba godzin"] ? `${game["Liczba godzin"]}h` : "";
         const date = game["Data ukończenia"] ? formatDate(game["Data ukończenia"]) : "";
         const review = escapeHtml(game["Recenzja"] || "");
 
-        // Tagi
         const tags = (game["Kolekcje"] || "").split(",").map(t => t.trim()).filter(Boolean);
         const tagsHtml = tags.map(t => `<span class="tag-pill">${escapeHtml(t)}</span>`).join("");
 
-        // Przyciski akcji admina
+        // Budowa informacji do stopki kafelka (bez ID)
+        const footerMetaItems = [];
+        if (date) footerMetaItems.push(`Ukończono: ${date}`);
+        if (hours) footerMetaItems.push(hours);
+        const footerMetaText = footerMetaItems.join(" • ");
+
         let adminButtonsHtml = "";
         if (state.isAdmin) {
             adminButtonsHtml = `
@@ -641,22 +1121,28 @@ function renderGamesGrid() {
             `;
         }
 
+        // Plakietka oceny renderowana tylko wtedy, gdy gra posiada ocenę
+        let ratingBadgeHtml = "";
+        if (hasRating) {
+            const ratingTooltip = `Ocena gry: ${rating}\nFabuła: ${fabuła}\nGrafika: ${grafika}\nMechanika: ${mechanika}`;
+            ratingBadgeHtml = `<div class="game-rating-badge" title="${escapeHtml(ratingTooltip)}">${rating}</div>`;
+        }
+
         card.innerHTML = `
             <div class="game-card-content">
                 <div class="game-card-header">
                     <h3 class="game-title">${title}</h3>
-                    <div class="game-rating-badge" title="Ocena ogólna: ${rating}/10">${rating}/10</div>
+                    ${ratingBadgeHtml}
                 </div>
                 <div class="game-meta-row">
                     <span class="badge-status">${status}</span>
                     <span class="badge-platform">${platform}</span>
-                    ${hours ? `<span class="badge-platform">${hours}</span>` : ""}
                 </div>
                 ${tagsHtml ? `<div class="game-tags">${tagsHtml}</div>` : ""}
                 ${review ? `<div class="game-review-snippet">${review.substring(0, 140)}${review.length > 140 ? "..." : ""}</div>` : ""}
             </div>
             <div class="game-card-footer">
-                <span>${date ? `Ukończono: ${date}` : `ID: ${game.id || "-"}`}</span>
+                <span>${footerMetaText}</span>
                 ${adminButtonsHtml}
             </div>
         `;
@@ -686,18 +1172,43 @@ function renderGamesGrid() {
     });
 }
 
-function populateFilterOptions() {
-    const statusSelect = document.getElementById("filterStatus");
-    const platformSelect = document.getElementById("filterPlatform");
-    const collectionSelect = document.getElementById("filterCollection");
+// ===================================================
+// FILTRY WIELOKROTNEGO WYBORU (CHECKLISTY)
+// ===================================================
 
+function setupFilterDropdown(btnId, menuId) {
+    const btn = document.getElementById(btnId);
+    const menu = document.getElementById(menuId);
+    if (!btn || !menu) return;
+
+    btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const isShown = menu.style.display === "block";
+        closeAllFilterDropdowns();
+        if (!isShown) menu.style.display = "block";
+    });
+
+    menu.addEventListener("click", (e) => {
+        e.stopPropagation();
+    });
+}
+
+function closeAllFilterDropdowns() {
+    const menus = ["menuFilterStatus", "menuFilterPlatform", "menuFilterCollection"];
+    menus.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.style.display = "none";
+    });
+}
+
+function populateFilterOptions() {
     const statuses = new Set();
     const platforms = new Set();
     const collections = new Set();
 
     state.games.forEach(g => {
-        if (g["Stan"]) statuses.add(g["Stan"]);
-        if (g["Platforma"]) platforms.add(g["Platforma"]);
+        if (g["Stan"]) statuses.add(g["Stan"].trim());
+        if (g["Platforma"]) platforms.add(g["Platforma"].trim());
         if (g["Kolekcje"]) {
             g["Kolekcje"].split(",").forEach(t => {
                 const clean = t.trim();
@@ -706,41 +1217,82 @@ function populateFilterOptions() {
         }
     });
 
-    populateSelect(statusSelect, Array.from(statuses).sort(), "Wszystkie stany", state.filters.status);
-    populateSelect(platformSelect, Array.from(platforms).sort(), "Wszystkie platformy", state.filters.platform);
-    populateSelect(collectionSelect, Array.from(collections).sort(), "Wszystkie kolekcje", state.filters.collection);
+    renderChecklist("checklistStatus", Array.from(statuses).sort(), state.filters.statuses, "labelFilterStatus", "Stan");
+    renderChecklist("checklistPlatform", Array.from(platforms).sort(), state.filters.platforms, "labelFilterPlatform", "Platforma");
+    renderChecklist("checklistCollection", Array.from(collections).sort(), state.filters.collections, "labelFilterCollection", "Kolekcje");
 }
 
-function populateSelect(selectEl, items, defaultLabel, currentValue) {
-    selectEl.innerHTML = `<option value="">${defaultLabel}</option>`;
-    items.forEach(item => {
-        const opt = document.createElement("option");
-        opt.value = item;
-        opt.textContent = item;
-        if (item === currentValue) opt.selected = true;
-        selectEl.appendChild(opt);
+function renderChecklist(containerId, items, selectedSet, labelId, prefix) {
+    const container = document.getElementById(containerId);
+    if (!container) return;
+
+    container.innerHTML = "";
+
+    if (items.length === 0) {
+        container.innerHTML = '<span style="font-size:12px; color:var(--color-text-muted); padding:4px;">Brak opcji</span>';
+        return;
+    }
+
+    items.forEach(val => {
+        const label = document.createElement("label");
+        label.className = "filter-check-item";
+
+        const isChecked = selectedSet.has(val);
+
+        label.innerHTML = `
+            <input type="checkbox" value="${escapeHtml(val)}" ${isChecked ? "checked" : ""}>
+            <span>${escapeHtml(val)}</span>
+        `;
+
+        const checkbox = label.querySelector("input");
+        checkbox.addEventListener("change", () => {
+            if (checkbox.checked) {
+                selectedSet.add(val);
+            } else {
+                selectedSet.delete(val);
+            }
+            updateFilterLabel(labelId, prefix, selectedSet);
+            renderGamesGrid();
+        });
+
+        container.appendChild(label);
     });
+
+    updateFilterLabel(labelId, prefix, selectedSet);
+}
+
+function updateFilterLabel(labelId, prefix, selectedSet) {
+    const labelEl = document.getElementById(labelId);
+    if (!labelEl) return;
+
+    if (selectedSet.size === 0) {
+        labelEl.textContent = `${prefix}: Wszystkie`;
+    } else if (selectedSet.size === 1) {
+        const firstVal = Array.from(selectedSet)[0];
+        labelEl.textContent = `${prefix}: ${firstVal}`;
+    } else {
+        labelEl.textContent = `${prefix} (${selectedSet.size})`;
+    }
 }
 
 function resetFilters() {
     state.filters.search = "";
-    state.filters.status = "";
-    state.filters.platform = "";
-    state.filters.collection = "";
+    state.filters.statuses.clear();
+    state.filters.platforms.clear();
+    state.filters.collections.clear();
     state.filters.sort = "title_asc";
 
     document.getElementById("searchInput").value = "";
     document.getElementById("btnClearSearch").style.display = "none";
-    document.getElementById("filterStatus").value = "";
-    document.getElementById("filterPlatform").value = "";
-    document.getElementById("filterCollection").value = "";
     document.getElementById("sortSelect").value = "title_asc";
 
+    closeAllFilterDropdowns();
+    populateFilterOptions();
     renderGamesGrid();
 }
 
 // ===================================================
-// MODAL: SZCZEGÓŁY GRY
+// MODAL: SZCZEGÓŁY GRY (ZWIĘZŁY)
 // ===================================================
 
 function openGameDetailsModal(game) {
@@ -753,46 +1305,51 @@ function openGameDetailsModal(game) {
     const ocenaOgólna = game["Ocena gry"] !== "" && game["Ocena gry"] !== undefined ? game["Ocena gry"] : "-";
 
     body.innerHTML = `
-        <div style="margin-bottom: 16px;">
-            <div style="font-size: 15px; margin-bottom: 8px;">
-                <strong>Stan:</strong> ${escapeHtml(game["Stan"] || "-")} | 
-                <strong>Platforma:</strong> ${escapeHtml(game["Platforma"] || "-")} | 
-                <strong>Czas gry:</strong> ${game["Liczba godzin"] ? `${game["Liczba godzin"]}h` : "-"}
+        <div style="margin-bottom: 14px;">
+            <div style="font-size: 15px; margin-bottom: 6px; display: flex; flex-wrap: wrap; gap: 8px;">
+                <span><strong>Stan:</strong> ${escapeHtml(game["Stan"] || "-")}</span>
+                <span>•</span>
+                <span><strong>Platforma:</strong> ${escapeHtml(game["Platforma"] || "-")}</span>
+                ${game["Liczba godzin"] ? `<span>•</span><span><strong>Czas:</strong> ${game["Liczba godzin"]}h</span>` : ""}
             </div>
-            <div style="font-size: 14px; margin-bottom: 8px;">
-                <strong>Data ukończenia:</strong> ${game["Data ukończenia"] ? formatDate(game["Data ukończenia"]) : "-"}
-            </div>
-            <div style="font-size: 14px; margin-bottom: 14px;">
-                <strong>Kolekcje / Tagi:</strong> ${escapeHtml(game["Kolekcje"] || "Brak")}
-            </div>
+            ${game["Data ukończenia"] ? `
+                <div style="font-size: 14px; color: var(--color-text-muted); margin-bottom: 6px;">
+                    <strong>Data ukończenia:</strong> ${formatDate(game["Data ukończenia"])}
+                </div>
+            ` : ""}
+            ${game["Kolekcje"] ? `
+                <div style="font-size: 14px; color: var(--color-text-muted); margin-bottom: 10px;">
+                    <strong>Kolekcje / Tagi:</strong> ${escapeHtml(game["Kolekcje"])}
+                </div>
+            ` : ""}
         </div>
 
-        <div style="background: var(--color-bg); padding: 12px; border-radius: var(--radius-sm); margin-bottom: 16px;">
-            <h4 style="margin-bottom: 8px; color: var(--color-primary);">Zestawienie ocen (0-10):</h4>
+        <div style="background: var(--color-bg); padding: 14px; border-radius: var(--radius-sm); border: 1px solid var(--color-border); margin-bottom: 14px;">
+            <h4 style="margin-bottom: 10px; font-size: 15px; color: var(--color-text-main);">Zestawienie ocen (0-10):</h4>
             <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; text-align: center;">
-                <div style="background: white; padding: 6px; border: 1px solid var(--color-border); border-radius: 4px;">
-                    <div style="font-size: 12px; color: var(--color-text-muted);">Fabuła</div>
-                    <div style="font-weight: bold; font-size: 16px;">${fabuła}</div>
+                <div style="background: var(--color-surface); padding: 8px; border: 1px solid var(--color-border); border-radius: 4px;">
+                    <div style="font-size: 14px; color: var(--color-text-muted);">Fabuła</div>
+                    <div style="font-weight: bold; font-size: 18px; margin-top: 4px;">${fabuła}</div>
                 </div>
-                <div style="background: white; padding: 6px; border: 1px solid var(--color-border); border-radius: 4px;">
-                    <div style="font-size: 12px; color: var(--color-text-muted);">Grafika</div>
-                    <div style="font-weight: bold; font-size: 16px;">${grafika}</div>
+                <div style="background: var(--color-surface); padding: 8px; border: 1px solid var(--color-border); border-radius: 4px;">
+                    <div style="font-size: 14px; color: var(--color-text-muted);">Grafika</div>
+                    <div style="font-weight: bold; font-size: 18px; margin-top: 4px;">${grafika}</div>
                 </div>
-                <div style="background: white; padding: 6px; border: 1px solid var(--color-border); border-radius: 4px;">
-                    <div style="font-size: 12px; color: var(--color-text-muted);">Mechanika</div>
-                    <div style="font-weight: bold; font-size: 16px;">${mechaniki}</div>
+                <div style="background: var(--color-surface); padding: 8px; border: 1px solid var(--color-border); border-radius: 4px;">
+                    <div style="font-size: 14px; color: var(--color-text-muted);">Mechanika</div>
+                    <div style="font-weight: bold; font-size: 18px; margin-top: 4px;">${mechaniki}</div>
                 </div>
-                <div style="background: white; padding: 6px; border: 1px solid var(--color-primary); border-radius: 4px;">
-                    <div style="font-size: 12px; color: var(--color-primary);">Ocena Gry</div>
-                    <div style="font-weight: bold; font-size: 16px; color: var(--color-primary);">${ocenaOgólna}</div>
+                <div style="background: var(--color-surface); padding: 8px; border: 1px solid var(--color-primary); border-radius: 4px;">
+                    <div style="font-size: 14px; color: var(--color-text-main);">Ocena Gry</div>
+                    <div style="font-weight: bold; font-size: 18px; margin-top: 4px; color: var(--color-text-main);">${ocenaOgólna}</div>
                 </div>
             </div>
         </div>
 
         ${game["Recenzja"] ? `
             <div>
-                <h4 style="margin-bottom: 6px; color: var(--color-primary);">Recenzja / Notatka:</h4>
-                <div style="white-space: pre-wrap; background: white; padding: 12px; border: 1px solid var(--color-border); border-radius: 4px; font-size: 14px; line-height: 1.5;">${escapeHtml(game["Recenzja"])}</div>
+                <h4 style="margin-bottom: 6px; font-size: 15px; color: var(--color-text-main);">Recenzja / Notatka:</h4>
+                <div style="white-space: pre-wrap; background: var(--color-bg); padding: 14px; border: 1px solid var(--color-border); border-radius: 4px; font-size: 14px; line-height: 1.5; color: #edf2f7;">${escapeHtml(game["Recenzja"])}</div>
             </div>
         ` : ""}
     `;
@@ -801,7 +1358,7 @@ function openGameDetailsModal(game) {
 }
 
 // ===================================================
-// ADMINISTRACJA I LOGOWANIE
+// ADMINISTRACJA I LOGOWANIE (ŚCISŁA WERYFIKACJA)
 // ===================================================
 
 async function handleAdminLogin(e) {
@@ -814,12 +1371,15 @@ async function handleAdminLogin(e) {
     submitBtn.disabled = true;
     submitBtn.textContent = "Weryfikacja...";
 
-    const enteredPass = passInput.value;
+    const enteredPass = passInput.value.trim();
 
     try {
-        const response = await sendApiRequest({ action: "getSettingsAndStats" }, enteredPass);
+        const response = await sendApiRequest({ action: "verifyAuth" }, enteredPass);
 
-        if (response.status === "success") {
+        const isAuthorized = response.status === "success" || 
+            (response.status === "error" && response.message && !response.message.includes("Brak autoryzacji") && response.message.includes("Nieznana akcja"));
+
+        if (isAuthorized) {
             state.isAdmin = true;
             state.adminPassword = enteredPass;
 
@@ -827,12 +1387,13 @@ async function handleAdminLogin(e) {
             passInput.value = "";
             applyAdminUiState();
             renderGamesGrid();
+            updateProfileBanner();
         } else {
-            errorDiv.textContent = "Błędne hasło administratora!";
+            errorDiv.textContent = "Błędne hasło dostępu!";
             errorDiv.style.display = "block";
         }
     } catch (err) {
-        errorDiv.textContent = "Błąd połączenia podczas autoryzacji.";
+        errorDiv.textContent = "Błędne hasło dostępu!";
         errorDiv.style.display = "block";
     } finally {
         submitBtn.disabled = false;
@@ -845,36 +1406,37 @@ function handleAdminLogout() {
     state.adminPassword = "";
     applyAdminUiState();
     renderGamesGrid();
+    updateProfileBanner();
 }
 
 function applyAdminUiState() {
-    const adminBadge = document.getElementById("adminBadge");
+    const syncStatusWrapper = document.getElementById("syncStatusWrapper");
     const btnAdminLogin = document.getElementById("btnAdminLoginModal");
     const adminActionsBar = document.getElementById("adminActionsBar");
+    const btnEditShowcase = document.getElementById("btnEditShowcase");
     const adminOnlyBlocks = document.querySelectorAll(".admin-only-block");
 
     if (state.isAdmin) {
-        adminBadge.style.display = "flex";
+        syncStatusWrapper.style.display = "flex";
         btnAdminLogin.style.display = "none";
         adminActionsBar.style.display = "flex";
+        if (btnEditShowcase) btnEditShowcase.style.display = "inline-block";
         adminOnlyBlocks.forEach(el => el.style.display = "flex");
     } else {
-        adminBadge.style.display = "none";
+        syncStatusWrapper.style.display = "none";
         btnAdminLogin.style.display = "inline-block";
         adminActionsBar.style.display = "none";
+        if (btnEditShowcase) btnEditShowcase.style.display = "none";
         adminOnlyBlocks.forEach(el => el.style.display = "none");
     }
 }
 
 // ===================================================
-// DODAWANIE / EDYCJA GRY
+// DODAWANIE / EDYCJA GRY (OPTIMISTIC UI)
 // ===================================================
 
 function openGameEditModal(game = null) {
-    if (!state.isAdmin) {
-        alert("Wymagane uprawnienia administratora.");
-        return;
-    }
+    if (!state.isAdmin) return;
 
     const form = document.getElementById("gameEditForm");
     form.reset();
@@ -927,21 +1489,17 @@ function populateSelectOptionsForForm() {
     });
 }
 
-async function handleGameFormSubmit(e) {
+function handleGameFormSubmit(e) {
     e.preventDefault();
-    if (!state.currentUser) return;
-
-    const errorDiv = document.getElementById("gameEditError");
-    const submitBtn = document.getElementById("btnSaveGameSubmit");
-    errorDiv.style.display = "none";
-    submitBtn.disabled = true;
-    submitBtn.textContent = "Zapisywanie w chmurze...";
+    if (!state.currentUser || !state.isAdmin) return;
 
     const gameId = document.getElementById("formGameId").value;
     const isEdit = !!gameId;
+    const title = document.getElementById("formGameTitle").value.trim();
 
     const gameDetails = {
-        "Tytuł": document.getElementById("formGameTitle").value.trim(),
+        "id": isEdit ? gameId : "ID_TEMP_" + Date.now(),
+        "Tytuł": title,
         "Stan": document.getElementById("formGameStatus").value,
         "Platforma": document.getElementById("formGamePlatform").value,
         "Ocena fabuły": parseNum(document.getElementById("formRatingFabuła").value),
@@ -954,115 +1512,148 @@ async function handleGameFormSubmit(e) {
         "Recenzja": document.getElementById("formReview").value.trim()
     };
 
-    try {
-        const response = await sendApiRequest({
-            action: isEdit ? "editGame" : "addGame",
-            user: state.currentUser.sheetName,
-            gameId: gameId,
-            gameDetails: JSON.stringify(gameDetails)
-        });
+    const previousGames = [...state.games];
+    const currentSheet = state.currentUser.sheetName;
 
-        if (response.status === "success") {
-            closeModal("gameEditModal");
-            // Unieważnienie cache dla tego użytkownika i statystyk
-            invalidateGamesCache(state.currentUser.sheetName);
-            invalidateSettingsCache();
-            await loadGamesForUser(state.currentUser.sheetName, true);
-        } else {
-            errorDiv.textContent = `Błąd zapisu: ${response.message}`;
-            errorDiv.style.display = "block";
-        }
-    } catch (err) {
-        errorDiv.textContent = "Błąd sieciowy podczas zapisu.";
-        errorDiv.style.display = "block";
-    } finally {
-        submitBtn.disabled = false;
-        submitBtn.textContent = "Zapisz w arkuszu";
+    // OPTYMISTYCZNA AKTUALIZACJA
+    if (isEdit) {
+        const idx = state.games.findIndex(g => String(g.id) === String(gameId));
+        if (idx !== -1) state.games[idx] = { ...state.games[idx], ...gameDetails };
+    } else {
+        state.games.unshift(gameDetails);
     }
+
+    setCachedGames(currentSheet, state.games);
+    updateProfileBanner();
+    populateFilterOptions();
+    renderGamesGrid();
+    closeModal("gameEditModal");
+
+    const taskTitle = isEdit ? `Edycja gry: ${title}` : `Dodanie gry: ${title}`;
+
+    enqueueSyncTask(
+        taskTitle,
+        async () => {
+            const res = await sendApiRequest({
+                action: isEdit ? "editGame" : "addGame",
+                user: currentSheet,
+                gameId: gameId,
+                gameDetails: JSON.stringify(gameDetails)
+            });
+
+            if (res.status === "success") {
+                invalidateSettingsCache();
+                if (!isEdit && res.data && res.data.id) {
+                    const tempGame = state.games.find(g => g.id === gameDetails.id);
+                    if (tempGame) tempGame.id = res.data.id;
+                    setCachedGames(currentSheet, state.games);
+                    renderGamesGrid();
+                    updateProfileBanner();
+                }
+            }
+            return res;
+        },
+        () => {
+            state.games = previousGames;
+            setCachedGames(currentSheet, state.games);
+            updateProfileBanner();
+            renderGamesGrid();
+        }
+    );
 }
 
-async function handleDeleteGame(gameId, title) {
+function handleDeleteGame(gameId, title) {
     if (!state.currentUser || !state.isAdmin) return;
 
     if (!confirm(`Czy na pewno chcesz usunąć grę "${title}" z bazy?`)) return;
 
-    try {
-        const response = await sendApiRequest({
-            action: "deleteGame",
-            user: state.currentUser.sheetName,
-            gameId: gameId
-        });
+    const previousGames = [...state.games];
+    const currentSheet = state.currentUser.sheetName;
 
-        if (response.status === "success") {
-            invalidateGamesCache(state.currentUser.sheetName);
-            invalidateSettingsCache();
-            await loadGamesForUser(state.currentUser.sheetName, true);
-        } else {
-            alert(`Błąd usuwania: ${response.message}`);
+    state.games = state.games.filter(g => String(g.id) !== String(gameId));
+    setCachedGames(currentSheet, state.games);
+    updateProfileBanner();
+    populateFilterOptions();
+    renderGamesGrid();
+
+    enqueueSyncTask(
+        `Usunięcie gry: ${title}`,
+        async () => {
+            const res = await sendApiRequest({
+                action: "deleteGame",
+                user: currentSheet,
+                gameId: gameId
+            });
+            if (res.status === "success") {
+                invalidateSettingsCache();
+            }
+            return res;
+        },
+        () => {
+            state.games = previousGames;
+            setCachedGames(currentSheet, state.games);
+            updateProfileBanner();
+            renderGamesGrid();
         }
-    } catch (e) {
-        alert("Błąd połączenia podczas usuwania wpisu.");
-    }
+    );
 }
 
 // ===================================================
-// DODAWANIE NOWEGO UŻYTKOWNIKA
+// DODAWANIE NOWEGO UŻYTKOWNIKA (OPTIMISTIC UI)
 // ===================================================
 
-async function handleAddUserSubmit(e) {
+function handleAddUserSubmit(e) {
     e.preventDefault();
     if (!state.isAdmin) return;
-
-    const errorDiv = document.getElementById("addUserError");
-    const submitBtn = document.getElementById("btnSubmitAddUser");
-    errorDiv.style.display = "none";
-    submitBtn.disabled = true;
-    submitBtn.textContent = "Tworzenie arkusza i formuł...";
 
     const userName = document.getElementById("newUserName").value.trim();
     const userCode = document.getElementById("newUserCode").value.trim().toUpperCase();
     const userColor = document.getElementById("newUserColor").value;
 
-    try {
-        const response = await sendApiRequest({
-            action: "addUser",
-            userName: userName,
-            userCode: userCode,
-            tabColor: userColor
-        });
+    const previousUsers = [...state.users];
 
-        if (response.status === "success") {
-            const newUser = {
-                code: userCode,
-                name: `${userName} (${userCode})`,
-                sheetName: `Baza gier ${userCode}`,
-                avatar: "assets/matthewmill.PNG"
-            };
-            state.users.push(newUser);
-            
-            // Invalidate cache
-            invalidateUsersCache();
-            invalidateSettingsCache();
-            try {
-                sessionStorage.setItem(CACHE_KEYS.USERS, JSON.stringify(state.users));
-            } catch (e) {}
+    const newUser = {
+        code: userCode,
+        name: `${userName} (${userCode})`,
+        sheetName: `Baza gier ${userCode}`,
+        avatar: "assets/matthewmill.PNG",
+        color: userColor,
+        hoverColor: userColor
+    };
 
-            closeModal("addUserModal");
-            document.getElementById("addUserForm").reset();
-            populateHeaderUserSelect();
-            switchUserProfile(newUser);
-            alert(`Pomyślnie utworzono nowy profil i arkusz: Baza gier ${userCode}`);
-        } else {
-            errorDiv.textContent = `Błąd: ${response.message}`;
-            errorDiv.style.display = "block";
+    state.users.push(newUser);
+    closeModal("addUserModal");
+    document.getElementById("addUserForm").reset();
+    renderProfileDropdownMenu();
+    switchUserProfile(newUser);
+
+    enqueueSyncTask(
+        `Tworzenie profilu: ${userCode}`,
+        async () => {
+            const res = await sendApiRequest({
+                action: "addUser",
+                userName: userName,
+                userCode: userCode,
+                tabColor: userColor
+            });
+
+            if (res.status === "success") {
+                invalidateUsersCache();
+                invalidateSettingsCache();
+                try {
+                    sessionStorage.setItem(CACHE_KEYS.USERS, JSON.stringify(state.users));
+                } catch (e) {}
+            }
+            return res;
+        },
+        () => {
+            state.users = previousUsers;
+            renderProfileDropdownMenu();
+            if (state.currentUser && state.currentUser.code === userCode) {
+                switchUserProfile(state.users[0]);
+            }
         }
-    } catch (err) {
-        errorDiv.textContent = "Błąd sieciowy podczas tworzenia profilu.";
-        errorDiv.style.display = "block";
-    } finally {
-        submitBtn.disabled = false;
-        submitBtn.textContent = "Utwórz profil i arkusz";
-    }
+    );
 }
 
 // ===================================================
@@ -1156,7 +1747,14 @@ function renderTable(containerId, tableData, category = null) {
     container.innerHTML = html;
 }
 
-async function handleAddSetting(category, inputValId, inputDescId = null) {
+function getSettingsCategoryData(category) {
+    if (category === "Stan") return state.settings.stan;
+    if (category === "Kolekcje") return state.settings.kolekcje;
+    if (category === "Platformy") return state.settings.platformy;
+    return null;
+}
+
+function handleAddSetting(category, inputValId, inputDescId = null) {
     if (!state.isAdmin) return;
 
     const valInput = document.getElementById(inputValId);
@@ -1170,48 +1768,97 @@ async function handleAddSetting(category, inputValId, inputDescId = null) {
         return;
     }
 
-    try {
-        const response = await sendApiRequest({
-            action: "addSettingsItem",
-            category: category,
-            value: val,
-            description: desc
-        });
+    if (valInput) valInput.value = "";
+    if (descInput) descInput.value = "";
 
-        if (response.status === "success") {
-            if (valInput) valInput.value = "";
-            if (descInput) descInput.value = "";
-            invalidateSettingsCache();
-            await fetchSettingsAndStats(true);
-        } else {
-            alert(`Błąd: ${response.message}`);
-        }
-    } catch (e) {
-        alert("Błąd połączenia podczas dodawania do słownika.");
+    // Optimistic UI - natychmiastowe dodanie wiersza w pamięci
+    const catData = getSettingsCategoryData(category);
+    let previousRows = null;
+
+    if (catData && catData.headers) {
+        previousRows = [...catData.rows];
+        const newRow = {};
+        catData.headers.forEach(h => {
+            if (h === "Lp") {
+                newRow[h] = catData.rows.length + 1;
+            } else if (h === category) {
+                newRow[h] = val;
+            } else if (h === `Opis ${category.toLowerCase()}` || h === "Opis" || h.includes("Opis")) {
+                newRow[h] = desc;
+            } else {
+                newRow[h] = 0;
+            }
+        });
+        catData.rows.push(newRow);
+        renderStatsTables();
+        populateFilterOptions();
     }
+
+    enqueueSyncTask(
+        `Dodawanie do słownika [${category}]: ${val}`,
+        async () => {
+            const res = await sendApiRequest({
+                action: "addSettingsItem",
+                category: category,
+                value: val,
+                description: desc
+            });
+            if (res.status === "success") {
+                invalidateSettingsCache();
+                await fetchSettingsAndStats(true);
+            }
+            return res;
+        },
+        () => {
+            // Rollback w przypadku błędu
+            if (catData && previousRows) {
+                catData.rows = previousRows;
+                renderStatsTables();
+                populateFilterOptions();
+            }
+        }
+    );
 }
 
-window.handleDeleteSettingItem = async function(category, value) {
+window.handleDeleteSettingItem = function(category, value) {
     if (!state.isAdmin) return;
 
     if (!confirm(`Czy na pewno chcesz usunąć "${value}" ze słownika ${category}?`)) return;
 
-    try {
-        const response = await sendApiRequest({
-            action: "deleteSettingsItem",
-            category: category,
-            value: value
-        });
+    // Optimistic UI - natychmiastowe usunięcie wiersza w pamięci
+    const catData = getSettingsCategoryData(category);
+    let previousRows = null;
 
-        if (response.status === "success") {
-            invalidateSettingsCache();
-            await fetchSettingsAndStats(true);
-        } else {
-            alert(`Błąd usuwania: ${response.message}`);
-        }
-    } catch (e) {
-        alert("Błąd połączenia.");
+    if (catData && catData.rows) {
+        previousRows = [...catData.rows];
+        catData.rows = catData.rows.filter(r => String(r[category]) !== String(value));
+        renderStatsTables();
+        populateFilterOptions();
     }
+
+    enqueueSyncTask(
+        `Usuwanie ze słownika [${category}]: ${value}`,
+        async () => {
+            const res = await sendApiRequest({
+                action: "deleteSettingsItem",
+                category: category,
+                value: value
+            });
+            if (res.status === "success") {
+                invalidateSettingsCache();
+                await fetchSettingsAndStats(true);
+            }
+            return res;
+        },
+        () => {
+            // Rollback w przypadku błędu
+            if (catData && previousRows) {
+                catData.rows = previousRows;
+                renderStatsTables();
+                populateFilterOptions();
+            }
+        }
+    );
 };
 
 // ===================================================
