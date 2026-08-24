@@ -10,7 +10,8 @@
 <body>
     <!-- GÓRNY PASEK NAWIGACYJNY (Ukryty na ekranie powitalnym) -->
     <header class="app-header" id="appHeader" style="display: none;">
-        <div class="header-left">
+        <!-- Desktop Header Left -->
+        <div class="header-left desktop-only">
             <button id="btnNavHome" class="nav-btn" title="Powrót do ekranu powitalnego">
                 <span class="nav-icon">&lt;</span> Start
             </button>
@@ -27,7 +28,19 @@
             </div>
         </div>
 
-        <div class="header-right">
+        <!-- Mobile Header Left (Hamburger Menu ☰ + Aktywny profil w jednej linii) -->
+        <div class="header-mobile-bar mobile-only">
+            <button id="btnMobileMenuToggle" class="mobile-hamburger-btn" title="Menu opcji i profili">
+                <span class="hamburger-icon">☰</span>
+            </button>
+            <div class="mobile-header-user-tag" id="mobileHeaderUserTag">
+                <img id="mobileActiveAvatar" src="assets/matthewmill.PNG" alt="Avatar" class="mini-avatar">
+                <span id="mobileActiveName">MM</span>
+            </div>
+        </div>
+
+        <!-- Desktop Header Right -->
+        <div class="header-right desktop-only">
             <button id="btnRefreshData" class="action-btn" title="Pobierz najświeższe dane z Google Sheets">[Odśwież]</button>
             <button id="btnToggleStats" class="action-btn">Ustawienia</button>
             <button id="btnAdminLoginModal" class="action-btn">Dostęp</button>
@@ -51,7 +64,49 @@
                 </div>
             </div>
         </div>
+
+        <!-- Mobile Header Right (Odśwież + Sync Status) -->
+        <div class="mobile-header-right mobile-only">
+            <button id="btnMobileRefresh" class="action-btn" title="Odśwież">[Odśwież]</button>
+            <div id="mobileSyncWrapper" class="sync-status-wrapper" style="display: none;">
+                <button id="btnMobileSyncStatus" class="sync-status-btn">
+                    <img id="mobileSyncStatusImg" src="assets/sync.png" alt="Sync" class="sync-icon-img">
+                </button>
+            </div>
+        </div>
     </header>
+
+    <!-- ROZWIJANA SZUFLADA MOBILNA (MOBILE DRAWER POD ☰) -->
+    <div id="mobileNavDrawer" class="mobile-nav-drawer" style="display: none;">
+        <div class="drawer-backdrop" id="mobileDrawerBackdrop"></div>
+        <div class="drawer-panel">
+            <div class="drawer-header">
+                <h3>Menu aplikacji</h3>
+                <button id="btnCloseMobileDrawer" class="drawer-close-btn">&times;</button>
+            </div>
+            <div class="drawer-section">
+                <span class="drawer-label">Przełącz profil:</span>
+                <div id="mobileProfileList" class="mobile-profile-list">
+                    <!-- Profile generowane dynamicznie w JS -->
+                </div>
+            </div>
+            <div class="drawer-divider"></div>
+            <div class="drawer-section">
+                <button id="btnMobileHome" class="drawer-menu-item">
+                    <span class="drawer-item-icon">&lt;</span>
+                    <span>Powrót na start</span>
+                </button>
+                <button id="btnMobileSettings" class="drawer-menu-item">
+                    <span class="drawer-item-icon">⚙</span>
+                    <span>Ustawienia Bazy</span>
+                </button>
+                <button id="btnMobileAdmin" class="drawer-menu-item">
+                    <span class="drawer-item-icon">🔒</span>
+                    <span id="mobileAdminLabel">Dostęp administratora</span>
+                </button>
+            </div>
+        </div>
+    </div>
 
     <!-- 1. EKRAN POWITALNY (STARTOWY) -->
     <main id="welcomeScreen" class="welcome-screen">
@@ -119,14 +174,21 @@
 
         <!-- TAB 1: BAZA GIER (WYSZUKIWANIE, FILTRY, LISTA) -->
         <section id="tabViewGames" class="main-tab-view">
-            <div class="dashboard-controls">
+            <div class="dashboard-controls sticky-controls" id="dashboardControls">
+                <!-- LINIA 2: PRZYCISKI AKCJI ADMINA (DODAJ GRĘ) -->
+                <div id="adminActionsBar" class="admin-actions-bar" style="display: none;">
+                    <button id="btnOpenAddGameModal" class="btn-primary">[+] Dodaj nową grę</button>
+                </div>
+
+                <!-- LINIA 3: PASEK WYSZUKIWANIA, SORTOWANIE I PRZYCISK FILTRÓW -->
                 <div class="search-sort-bar">
                     <div class="search-wrapper">
-                        <input type="text" id="searchInput" class="search-input" placeholder="Szukaj gry po tytule, platformie, tagach...">
+                        <img src="assets/lupa.png" alt="Szukaj" class="search-bar-icon">
+                        <input type="text" id="searchInput" class="search-input" placeholder="Szukaj gry...">
                         <button id="btnClearSearch" class="clear-btn" style="display: none;">[x]</button>
                     </div>
                     <div class="sort-wrapper">
-                        <label for="sortSelect">Sortuj:</label>
+                        <label for="sortSelect" class="desktop-only">Sortuj:</label>
                         <select id="sortSelect" class="form-select">
                             <option value="title_asc">Tytuł (A-Z)</option>
                             <option value="title_desc">Tytuł (Z-A)</option>
@@ -136,14 +198,14 @@
                             <option value="date_desc">Data ukończenia (Od najnowszych)</option>
                         </select>
                     </div>
-                    <div id="adminActionsBar" class="admin-actions-bar" style="display: none;">
-                        <button id="btnOpenAddGameModal" class="btn-primary">[+] Dodaj nową grę</button>
-                        <button id="btnOpenAddUserModal" class="btn-secondary">[+] Dodaj profil</button>
-                    </div>
+                    <button type="button" id="btnToggleMobileFilters" class="btn-toggle-filters mobile-only" title="Pokaż / ukryj filtry">
+                        <img src="assets/filtr.png" alt="Filtry" class="filter-bar-icon">
+                        <span id="mobileFiltersBadge" class="filter-active-count" style="display: none;">0</span>
+                    </button>
                 </div>
 
                 <!-- FILTRY WIELOKROTNEGO WYBORU (LISTY ROZWIJANE) -->
-                <div class="filters-row">
+                <div class="filters-row" id="filtersRow">
                     <!-- Filtr Stanu -->
                     <div class="filter-dropdown-wrapper" id="filterStatusWrapper">
                         <button type="button" class="filter-dropdown-btn" id="btnFilterStatus">
@@ -315,7 +377,11 @@
                     <div class="form-row">
                         <div class="form-group col-12">
                             <label for="formCollections">Kolekcje / Tagi (oddzielone przecinkami)</label>
-                            <input type="text" id="formCollections" class="form-input" placeholder="np. Najlepsze, Ulubione, Polecajka dla Przyjaciela">
+                            <input type="text" id="formCollections" class="form-input" placeholder="np. Najlepsze, Ulubione, Demo, Gablota">
+                            <div class="form-tags-picker-wrapper" style="margin-top: 8px;">
+                                <span style="font-size: 12px; color: var(--color-text-muted); display: block; margin-bottom: 4px;">Dostępne tagi ze słownika (kliknij, aby dodać/usunąć):</span>
+                                <div id="formAvailableTagsContainer" class="form-available-tags" style="display: flex; flex-wrap: wrap; gap: 6px; max-height: 110px; overflow-y: auto; padding: 6px; background: var(--color-bg); border-radius: 4px; border: 1px solid var(--color-border);"></div>
+                            </div>
                         </div>
                     </div>
                     <div class="form-row">
@@ -328,25 +394,24 @@
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn-secondary" data-close="gameEditModal">Anuluj</button>
-                    <button type="submit" id="btnSaveGameSubmit" class="btn-primary">Zapisz w arkuszu</button>
+                    <button type="submit" id="btnSaveGameSubmit" class="btn-primary">Zapisz</button>
                 </div>
             </form>
         </div>
     </div>
 
-    <!-- 6. MODAL: USTAWIENIA I STATYSTYKI -->
+    <!-- 6. MODAL: USTAWIENIA BAZY -->
     <div id="statsModal" class="modal-backdrop" style="display: none;">
         <div class="modal-window modal-large">
             <div class="modal-header">
-                <h2>Ustawienia i Statystyki Bazy</h2>
+                <h2>Ustawienia Bazy</h2>
             </div>
             <div class="modal-body">
                 <div class="tabs-nav">
                     <button class="tab-btn active" data-tab="tabStan">Stany</button>
                     <button class="tab-btn" data-tab="tabKolekcje">Kolekcje</button>
                     <button class="tab-btn" data-tab="tabPlatformy">Platformy</button>
-                    <button class="tab-btn" data-tab="tabOceny">Oceny i Średnie</button>
-                    <button class="tab-btn" data-tab="tabDaty">Ukończenia</button>
+                    <button class="tab-btn" data-tab="tabUzytkownicy">Użytkownicy</button>
                 </div>
 
                 <div class="tab-content" id="tabStan">
@@ -375,16 +440,11 @@
                     <div class="table-container" id="tablePlatformyContainer"></div>
                 </div>
 
-                <div class="tab-content" id="tabOceny" style="display: none;">
-                    <h3>Średnia ocen</h3>
-                    <div class="table-container" id="tableSrednieContainer"></div>
-                    <h3 style="margin-top: 20px;">Rozkład liczby ocen</h3>
-                    <div class="table-container" id="tableLiczbaOcenContainer"></div>
-                </div>
-
-                <div class="tab-content" id="tabDaty" style="display: none;">
-                    <h3>Tytuły ukończone w poszczególnych miesiącach</h3>
-                    <div class="table-container" id="tableUkonczoneContainer"></div>
+                <div class="tab-content" id="tabUzytkownicy" style="display: none;">
+                    <div class="tab-actions admin-only-block" style="display: none; margin-bottom: 12px;">
+                        <button id="btnOpenAddUserModal" class="btn-primary">[+] Dodaj profil użytkownika</button>
+                    </div>
+                    <div class="table-container" id="tableUzytkownicyContainer"></div>
                 </div>
             </div>
             <div class="modal-footer">
@@ -446,14 +506,54 @@
         </div>
     </div>
 
+    <!-- 9. MODAL: EDYCJA POZYCJI W SŁOWNIKU -->
+    <div id="editSettingModal" class="modal-backdrop" style="display: none;">
+        <div class="modal-window modal-small">
+            <div class="modal-header">
+                <h2 id="editSettingModalTitle">Edytuj pozycję</h2>
+            </div>
+            <form id="editSettingForm">
+                <div class="modal-body">
+                    <input type="hidden" id="editSettingCategory">
+                    <input type="hidden" id="editSettingOldValue">
+                    <div class="form-group">
+                        <label for="editSettingNewValue" id="editSettingValueLabel">Wartość:</label>
+                        <input type="text" id="editSettingNewValue" class="form-input" required>
+                    </div>
+                    <div class="form-group" id="editSettingDescGroup">
+                        <label for="editSettingNewDesc">Opis:</label>
+                        <input type="text" id="editSettingNewDesc" class="form-input">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn-secondary" data-close="editSettingModal">Anuluj</button>
+                    <button type="submit" class="btn-primary">Zapisz zmiany</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- 10. MODAL: OSTRZEŻENIE O NIEZAPISANYCH ZMIANACH -->
+    <div id="unsavedChangesModal" class="modal-backdrop" style="display: none; z-index: 1200;">
+        <div class="modal-window modal-small">
+            <div class="modal-header">
+                <h2>Niezapisane zmiany</h2>
+            </div>
+            <div class="modal-body">
+                <p class="modal-hint" style="color: var(--color-text-main); font-size: 14px;">W formularzu znajdują się niezapisane zmiany. Co chcesz zrobić?</p>
+            </div>
+            <div class="modal-footer" style="display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap;">
+                <button type="button" id="btnUnsavedDiscard" class="btn-secondary" style="color: #ff6b6b; border-color: rgba(239, 68, 68, 0.4);">Odrzuć zmiany</button>
+                <button type="button" id="btnUnsavedStay" class="btn-secondary">Wróć do edycji</button>
+                <button type="button" id="btnUnsavedSave" class="btn-primary">Zapisz</button>
+            </div>
+        </div>
+    </div>
+
     <!-- STOPKA (Ukryta na ekranie powitalnym) -->
     <footer class="app-footer" id="appFooter" style="display: none;">
         <div class="footer-content">
-            <span>NKMM Baza Gier - Osobisty rejestr rozgrywek</span>
-            <span class="footer-links">
-                <a href="#welcome" id="footerHomeLink">Start</a> | 
-                <a href="https://github.com" target="_blank" rel="noopener">GitHub Pages</a>
-            </span>
+            <span>&copy; NKMM Baza Gier - Osobisty rejestr rozgrywek</span>
         </div>
     </footer>
 
