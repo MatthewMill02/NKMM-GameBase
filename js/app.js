@@ -53,7 +53,7 @@ const state = {
         statuses: new Set(),
         platforms: new Set(),
         collections: new Set(),
-        sort: "title_asc"
+        sort: "updated_desc"
     }
 };
 
@@ -979,6 +979,18 @@ function filterShowcaseChecklist(query) {
     });
 }
 
+function getCurrentDateTimeString() {
+    const d = new Date();
+    const pad = (n) => String(n).padStart(2, '0');
+    const yyyy = d.getFullYear();
+    const mm = pad(d.getMonth() + 1);
+    const dd = pad(d.getDate());
+    const hh = pad(d.getHours());
+    const min = pad(d.getMinutes());
+    const ss = pad(d.getSeconds());
+    return `${yyyy}-${mm}-${dd} ${hh}:${min}:${ss}`;
+}
+
 function handleSaveShowcase() {
     if (!state.currentUser) return;
 
@@ -1006,7 +1018,9 @@ function handleSaveShowcase() {
 
         if (changed) {
             game["Kolekcje"] = tags.join(", ");
-            const gameDetails = { ...game };
+            const nowTime = getCurrentDateTimeString();
+            game["Aktualizacja"] = nowTime;
+            const gameDetails = { ...game, "Aktualizacja": nowTime };
             const apiParams = {
                 action: "editGame",
                 user: state.currentUser.sheetName,
@@ -1977,6 +1991,13 @@ function renderGamesGrid() {
 
     filtered.sort((a, b) => {
         switch (state.filters.sort) {
+            case "updated_desc": {
+                const dateA = a["Aktualizacja"] || a["Akualizacja"] || a["Data modyfikacji"] || a["id"] || "";
+                const dateB = b["Aktualizacja"] || b["Akualizacja"] || b["Data modyfikacji"] || b["id"] || "";
+                const comp = String(dateB).localeCompare(String(dateA));
+                if (comp !== 0) return comp;
+                return (a["Tytuł"] || "").localeCompare(b["Tytuł"] || "");
+            }
             case "title_asc":
                 return (a["Tytuł"] || "").localeCompare(b["Tytuł"] || "");
             case "title_desc":
@@ -1989,8 +2010,13 @@ function renderGamesGrid() {
                 return (parseFloat(b["Liczba godzin"]) || 0) - (parseFloat(a["Liczba godzin"]) || 0);
             case "date_desc":
                 return (b["Data ukończenia"] || "").localeCompare(a["Data ukończenia"] || "");
-            default:
-                return 0;
+            default: {
+                const dateA = a["Aktualizacja"] || a["Akualizacja"] || a["Data modyfikacji"] || a["id"] || "";
+                const dateB = b["Aktualizacja"] || b["Akualizacja"] || b["Data modyfikacji"] || b["id"] || "";
+                const comp = String(dateB).localeCompare(String(dateA));
+                if (comp !== 0) return comp;
+                return (a["Tytuł"] || "").localeCompare(b["Tytuł"] || "");
+            }
         }
     });
 
@@ -2231,11 +2257,11 @@ function resetFilters() {
     state.filters.statuses.clear();
     state.filters.platforms.clear();
     state.filters.collections.clear();
-    state.filters.sort = "title_asc";
+    state.filters.sort = "updated_desc";
 
     document.getElementById("searchInput").value = "";
     document.getElementById("btnClearSearch").style.display = "none";
-    document.getElementById("sortSelect").value = "title_asc";
+    document.getElementById("sortSelect").value = "updated_desc";
 
     closeAllFilterDropdowns();
     populateFilterOptions();
@@ -2255,6 +2281,7 @@ function openGameDetailsModal(game) {
     const grafika = game["Ocena grafiki"] !== "" && game["Ocena grafiki"] !== undefined ? game["Ocena grafiki"] : "-";
     const mechaniki = game["Ocena mechanik"] !== "" && game["Ocena mechanik"] !== undefined ? game["Ocena mechanik"] : "-";
     const ocenaOgólna = game["Ocena gry"] !== "" && game["Ocena gry"] !== undefined ? game["Ocena gry"] : "-";
+    const updatedTime = game["Aktualizacja"] || game["Akualizacja"] || game["Data modyfikacji"] || "";
 
     body.innerHTML = `
         <div style="margin-bottom: 14px;">
@@ -2270,8 +2297,13 @@ function openGameDetailsModal(game) {
                 </div>
             ` : ""}
             ${game["Kolekcje"] ? `
-                <div style="font-size: 14px; color: var(--color-text-muted); margin-bottom: 10px;">
+                <div style="font-size: 14px; color: var(--color-text-muted); margin-bottom: 6px;">
                     <strong>Kolekcje / Tagi:</strong> ${escapeHtml(game["Kolekcje"])}
+                </div>
+            ` : ""}
+            ${updatedTime ? `
+                <div style="font-size: 13px; color: var(--color-text-muted); margin-bottom: 10px;">
+                    <strong>Ostatnia aktualizacja:</strong> ${escapeHtml(String(updatedTime))}
                 </div>
             ` : ""}
         </div>
@@ -2607,7 +2639,8 @@ function handleGameFormSubmit(e) {
         "Liczba godzin": parseNum(document.getElementById("formHours").value),
         "Data ukończenia": document.getElementById("formCompletionDate").value,
         "Kolekcje": document.getElementById("formCollections").value.trim(),
-        "Recenzja": document.getElementById("formReview").value.trim()
+        "Recenzja": document.getElementById("formReview").value.trim(),
+        "Aktualizacja": getCurrentDateTimeString()
     };
 
     const previousGames = [...state.games];
