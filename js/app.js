@@ -198,8 +198,22 @@ function initEvents() {
         });
     });
 
-    // Obsługa edycji i usuwania ze słowników (Ustawienia Bazy)
+    // Obsługa edycji, usuwania i menu 3 kropek ze słowników (Ustawienia Bazy)
     document.addEventListener("click", (e) => {
+        const menuBtn = e.target.closest(".btn-table-menu");
+        if (menuBtn) {
+            const parentContainer = menuBtn.closest(".table-menu-container");
+            const isOpen = parentContainer.classList.contains("active");
+            document.querySelectorAll(".table-menu-container.active").forEach(el => el.classList.remove("active"));
+            if (!isOpen) {
+                parentContainer.classList.add("active");
+            }
+            return;
+        }
+
+        // Kliknięcie w opcję lub poza menu zamyka wszystkie aktywne menu 3 kropek
+        document.querySelectorAll(".table-menu-container.active").forEach(el => el.classList.remove("active"));
+
         const editBtn = e.target.closest(".btn-setting-edit");
         if (editBtn) {
             const cat = editBtn.getAttribute("data-category");
@@ -1210,7 +1224,6 @@ async function renderChartsComparisonSection() {
         <div class="chart-legend" style="margin-bottom: 16px; padding: 10px 14px; background: var(--color-bg); border-radius: 4px; border: 1px solid var(--color-border);">
             <div class="legend-item"><span class="legend-dot" style="background-color: ${mmColor};"></span><strong>${escapeHtml(mmUser.name)} (${mmGames.length} gier)</strong></div>
             <div class="legend-item"><span class="legend-dot" style="background-color: ${nkColor};"></span><strong>${escapeHtml(nkUser.name)} (${nkGames.length} gier)</strong></div>
-            <div style="font-size: 11px; color: var(--color-text-muted); margin-left: auto;">* Kliknij lub dotknij dowolny element wykresu, aby zobaczyć szczegóły</div>
         </div>
 
         <div class="charts-grid">
@@ -1326,11 +1339,15 @@ function renderStatusComparisonBars(mmGames, nkGames, mmUser, nkUser) {
                 <span class="chart-bar-label" title="${escapeHtml(item.status)}">${escapeHtml(item.status)}</span>
                 <div class="chart-dual-bars">
                     <div class="chart-single-bar-container">
-                        <div class="chart-single-bar-fill" style="width: ${Math.max(mmPct, 3)}%; background-color: ${mmUser.color || '#13a71f'};"></div>
+                        <div class="chart-single-bar-track">
+                            <div class="chart-single-bar-fill" style="width: ${Math.max(mmPct, 3)}%; background-color: ${mmUser.color || '#13a71f'};"></div>
+                        </div>
                         <span class="chart-single-bar-val">${item.mm}</span>
                     </div>
                     <div class="chart-single-bar-container">
-                        <div class="chart-single-bar-fill" style="width: ${Math.max(nkPct, 3)}%; background-color: ${nkUser.color || '#A81214'};"></div>
+                        <div class="chart-single-bar-track">
+                            <div class="chart-single-bar-fill" style="width: ${Math.max(nkPct, 3)}%; background-color: ${nkUser.color || '#A81214'};"></div>
+                        </div>
                         <span class="chart-single-bar-val">${item.nk}</span>
                     </div>
                 </div>
@@ -1571,8 +1588,8 @@ function renderCompletionsTimelineChart(mmGames, nkGames, mmUser, nkUser) {
     });
 
     return `
-        <div style="width: 100%; overflow-x: auto;">
-            <svg viewBox="0 0 ${svgWidth} ${svgHeight}" class="line-chart-svg" style="min-width: 380px;">
+        <div style="width: 100%; overflow: hidden;">
+            <svg viewBox="0 0 ${svgWidth} ${svgHeight}" class="line-chart-svg" style="width: 100%; height: auto; max-width: 100%; display: block;">
                 ${gridLinesHtml}
                 <path d="${pathMM}" stroke="${mmUser.color || '#13a71f'}" class="chart-line-path"></path>
                 <path d="${pathNK}" stroke="${nkUser.color || '#A81214'}" class="chart-line-path"></path>
@@ -1628,11 +1645,15 @@ function renderRatingsComparisonBars(mmGames, nkGames, mmUser, nkUser) {
                 <span class="chart-bar-label" style="font-size: 11px;">${escapeHtml(item.label)}</span>
                 <div class="chart-dual-bars">
                     <div class="chart-single-bar-container">
-                        <div class="chart-single-bar-fill" style="width: ${Math.max(mmPct, 3)}%; background-color: ${mmUser.color || '#13a71f'};"></div>
+                        <div class="chart-single-bar-track">
+                            <div class="chart-single-bar-fill" style="width: ${Math.max(mmPct, 3)}%; background-color: ${mmUser.color || '#13a71f'};"></div>
+                        </div>
                         <span class="chart-single-bar-val">${item.mm}</span>
                     </div>
                     <div class="chart-single-bar-container">
-                        <div class="chart-single-bar-fill" style="width: ${Math.max(nkPct, 3)}%; background-color: ${nkUser.color || '#A81214'};"></div>
+                        <div class="chart-single-bar-track">
+                            <div class="chart-single-bar-fill" style="width: ${Math.max(nkPct, 3)}%; background-color: ${nkUser.color || '#A81214'};"></div>
+                        </div>
                         <span class="chart-single-bar-val">${item.nk}</span>
                     </div>
                 </div>
@@ -2534,89 +2555,105 @@ function populateSelectOptionsForForm() {
         platformSelect.appendChild(opt);
     });
 
-    // 3. Tagi ze słownika state.settings.kolekcje + z gier w bazie + tagi specjalne
-    const allTags = new Set(["Demo", "Gablota"]);
+    // 3. Tagi ze słownika state.settings.kolekcje + z gier w bazie oraz tagi specjalne
+    const specialTagsContainer = document.getElementById("formSpecialTagsContainer");
+    const specialTags = ["Demo", "Gablota"];
+
+    const dictionaryTags = new Set();
     if (state.settings.kolekcje && state.settings.kolekcje.rows) {
         state.settings.kolekcje.rows.forEach(r => {
             const val = (r["Kolekcje"] || "").trim();
-            if (val) allTags.add(val);
+            if (val && !specialTags.some(s => s.toLowerCase() === val.toLowerCase())) {
+                dictionaryTags.add(val);
+            }
         });
     }
     state.games.forEach(g => {
         if (g["Kolekcje"]) {
             g["Kolekcje"].split(",").forEach(t => {
                 const clean = t.trim();
-                if (clean) allTags.add(clean);
+                if (clean && !specialTags.some(s => s.toLowerCase() === clean.toLowerCase())) {
+                    dictionaryTags.add(clean);
+                }
             });
         }
     });
 
-    if (tagsContainer) {
-        tagsContainer.innerHTML = "";
-        const sortedTags = Array.from(allTags).sort((a, b) => a.localeCompare(b));
+    const getSelectedTags = () => {
+        return (collectionsInput.value || "")
+            .split(",")
+            .map(t => t.trim().toLowerCase())
+            .filter(Boolean);
+    };
 
-        const getSelectedTags = () => {
-            return (collectionsInput.value || "")
+    const refreshTagPills = () => {
+        const currentSelected = getSelectedTags();
+        document.querySelectorAll(".form-tag-badge").forEach(badge => {
+            const tagVal = badge.getAttribute("data-tag").toLowerCase();
+            const isSelected = currentSelected.includes(tagVal);
+            if (isSelected) {
+                badge.classList.add("selected");
+                badge.style.outline = "2px solid var(--color-primary)";
+                badge.style.fontWeight = "bold";
+            } else {
+                badge.classList.remove("selected");
+                badge.style.outline = "none";
+                badge.style.fontWeight = "normal";
+            }
+        });
+    };
+
+    const createTagBadge = (tag) => {
+        const col = getTagColor(tag);
+        const badge = document.createElement("button");
+        badge.type = "button";
+        badge.className = "form-tag-badge tag-pill";
+        badge.setAttribute("data-tag", tag);
+        badge.style.backgroundColor = col.bg;
+        badge.style.borderColor = col.border;
+        badge.style.color = col.text;
+        badge.style.cursor = "pointer";
+        badge.style.fontSize = "12px";
+        badge.style.padding = "3px 8px";
+        badge.style.borderRadius = "4px";
+        badge.textContent = tag;
+
+        badge.addEventListener("click", (e) => {
+            e.preventDefault();
+            const currentArr = (collectionsInput.value || "")
                 .split(",")
-                .map(t => t.trim().toLowerCase())
+                .map(t => t.trim())
                 .filter(Boolean);
-        };
-
-        const refreshTagPills = () => {
-            const currentSelected = getSelectedTags();
-            tagsContainer.querySelectorAll(".form-tag-badge").forEach(badge => {
-                const tagVal = badge.getAttribute("data-tag").toLowerCase();
-                const isSelected = currentSelected.includes(tagVal);
-                if (isSelected) {
-                    badge.classList.add("selected");
-                    badge.style.outline = "2px solid var(--color-primary)";
-                    badge.style.fontWeight = "bold";
-                } else {
-                    badge.classList.remove("selected");
-                    badge.style.outline = "none";
-                    badge.style.fontWeight = "normal";
-                }
-            });
-        };
-
-        sortedTags.forEach(tag => {
-            const col = getTagColor(tag);
-            const badge = document.createElement("button");
-            badge.type = "button";
-            badge.className = "form-tag-badge tag-pill";
-            badge.setAttribute("data-tag", tag);
-            badge.style.backgroundColor = col.bg;
-            badge.style.borderColor = col.border;
-            badge.style.color = col.text;
-            badge.style.cursor = "pointer";
-            badge.style.fontSize = "12px";
-            badge.style.padding = "3px 8px";
-            badge.style.borderRadius = "4px";
-            badge.textContent = tag;
-
-            badge.addEventListener("click", (e) => {
-                e.preventDefault();
-                const currentArr = (collectionsInput.value || "")
-                    .split(",")
-                    .map(t => t.trim())
-                    .filter(Boolean);
-                const tagIdx = currentArr.findIndex(t => t.toLowerCase() === tag.toLowerCase());
-                if (tagIdx !== -1) {
-                    currentArr.splice(tagIdx, 1);
-                } else {
-                    currentArr.push(tag);
-                }
-                collectionsInput.value = currentArr.join(", ");
-                refreshTagPills();
-            });
-
-            tagsContainer.appendChild(badge);
+            const tagIdx = currentArr.findIndex(t => t.toLowerCase() === tag.toLowerCase());
+            if (tagIdx !== -1) {
+                currentArr.splice(tagIdx, 1);
+            } else {
+                currentArr.push(tag);
+            }
+            collectionsInput.value = currentArr.join(", ");
+            refreshTagPills();
         });
 
-        refreshTagPills();
+        return badge;
+    };
 
-        collectionsInput.oninput = refreshTagPills;
+    if (specialTagsContainer) {
+        specialTagsContainer.innerHTML = "";
+        specialTags.forEach(tag => {
+            specialTagsContainer.appendChild(createTagBadge(tag));
+        });
     }
+
+    if (tagsContainer) {
+        tagsContainer.innerHTML = "";
+        const sortedDictTags = Array.from(dictionaryTags).sort((a, b) => a.localeCompare(b));
+        sortedDictTags.forEach(tag => {
+            tagsContainer.appendChild(createTagBadge(tag));
+        });
+    }
+
+    refreshTagPills();
+    collectionsInput.oninput = refreshTagPills;
 }
 
 function handleGameFormSubmit(e) {
@@ -2899,7 +2936,7 @@ function renderTable(containerId, tableData, category = null) {
         html += `<th>${escapeHtml(h)}</th>`;
     });
     if (state.isAdmin && category) {
-        html += "<th>Akcje</th>";
+        html += "<th style='width: 36px;'></th>";
     }
     html += "</tr></thead><tbody>";
 
@@ -2916,9 +2953,16 @@ function renderTable(containerId, tableData, category = null) {
             const primaryVal = row[category] || "";
             const descVal = descColName ? (row[descColName] || "") : "";
             html += `
-                <td style="white-space: nowrap;">
-                    <button type="button" class="btn-card-action btn-card-edit btn-setting-edit" data-category="${escapeHtml(category)}" data-val="${escapeHtml(primaryVal)}" data-desc="${escapeHtml(descVal)}">Edytuj</button>
-                    <button type="button" class="btn-card-action btn-card-delete btn-setting-delete" data-category="${escapeHtml(category)}" data-val="${escapeHtml(primaryVal)}">Usuń</button>
+                <td style="text-align: center; width: 36px; position: relative;">
+                    <div class="table-menu-container">
+                        <button type="button" class="btn-table-menu" title="Więcej opcji" aria-label="Więcej opcji">
+                            <span>&#8942;</span>
+                        </button>
+                        <div class="table-menu-dropdown">
+                            <button type="button" class="table-menu-item btn-setting-edit" data-category="${escapeHtml(category)}" data-val="${escapeHtml(primaryVal)}" data-desc="${escapeHtml(descVal)}">Edytuj</button>
+                            <button type="button" class="table-menu-item table-menu-item-danger btn-setting-delete" data-category="${escapeHtml(category)}" data-val="${escapeHtml(primaryVal)}">Usuń</button>
+                        </div>
+                    </div>
                 </td>
             `;
         }

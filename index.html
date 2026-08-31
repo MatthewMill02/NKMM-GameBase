@@ -275,7 +275,6 @@
             <div class="charts-overview-container">
                 <div class="chart-box">
                     <h3>Porównanie profili graczy</h3>
-                    <p class="modal-hint">Zestawienie statystyk i wykresy porównawcze bibliotek graczy.</p>
                     <div id="chartsComparisonContent" class="charts-comparison-content">
                         <!-- Wypełniane dynamicznie w JS -->
                     </div>
@@ -347,22 +346,22 @@
                             <select id="formGamePlatform" class="form-select"></select>
                         </div>
                     </div>
-                    <div class="form-row">
-                        <div class="form-group col-3">
-                            <label for="formRatingFabuła">Fabuła (0-10)</label>
-                            <input type="number" id="formRatingFabuła" class="form-input" step="0.1" min="0" max="10">
+                    <div class="form-row ratings-form-row">
+                        <div class="form-group col-3 col-rating">
+                            <label for="formRatingFabuła" class="rating-label">Fabuła <span class="rating-scale">(0-10)</span></label>
+                            <input type="number" id="formRatingFabuła" class="form-input rating-input" step="0.1" min="0" max="10" placeholder="-">
                         </div>
-                        <div class="form-group col-3">
-                            <label for="formRatingGrafika">Grafika (0-10)</label>
-                            <input type="number" id="formRatingGrafika" class="form-input" step="0.1" min="0" max="10">
+                        <div class="form-group col-3 col-rating">
+                            <label for="formRatingGrafika" class="rating-label">Grafika <span class="rating-scale">(0-10)</span></label>
+                            <input type="number" id="formRatingGrafika" class="form-input rating-input" step="0.1" min="0" max="10" placeholder="-">
                         </div>
-                        <div class="form-group col-3">
-                            <label for="formRatingMechanika">Mechanika (0-10)</label>
-                            <input type="number" id="formRatingMechanika" class="form-input" step="0.1" min="0" max="10">
+                        <div class="form-group col-3 col-rating">
+                            <label for="formRatingMechanika" class="rating-label">Mechanika <span class="rating-scale">(0-10)</span></label>
+                            <input type="number" id="formRatingMechanika" class="form-input rating-input" step="0.1" min="0" max="10" placeholder="-">
                         </div>
-                        <div class="form-group col-3">
-                            <label for="formRatingOgólna">Ocena gry (0-10)</label>
-                            <input type="number" id="formRatingOgólna" class="form-input" step="0.1" min="0" max="10">
+                        <div class="form-group col-3 col-rating">
+                            <label for="formRatingOgólna" class="rating-label">Ocena <span class="rating-scale">(0-10)</span></label>
+                            <input type="number" id="formRatingOgólna" class="form-input rating-input" step="0.1" min="0" max="10" placeholder="-">
                         </div>
                     </div>
                     <div class="form-row">
@@ -379,9 +378,12 @@
                         <div class="form-group col-12">
                             <label for="formCollections">Kolekcje / Tagi (oddzielone przecinkami)</label>
                             <input type="text" id="formCollections" class="form-input" placeholder="np. Najlepsze, Ulubione, Demo, Gablota">
-                            <div class="form-tags-picker-wrapper" style="margin-top: 8px;">
-                                <span style="font-size: 12px; color: var(--color-text-muted); display: block; margin-bottom: 4px;">Dostępne tagi ze słownika (kliknij, aby dodać/usunąć):</span>
-                                <div id="formAvailableTagsContainer" class="form-available-tags" style="display: flex; flex-wrap: wrap; gap: 6px; max-height: 110px; overflow-y: auto; padding: 6px; background: var(--color-bg); border-radius: 4px; border: 1px solid var(--color-border);"></div>
+                            <div class="form-tags-picker-wrapper" style="margin-top: 10px;">
+                                <span style="font-size: 12px; color: var(--color-text-muted); display: block; margin-bottom: 6px;">Specjalne tagi:</span>
+                                <div id="formSpecialTagsContainer" class="form-available-tags" style="margin-bottom: 10px;"></div>
+
+                                <span style="font-size: 12px; color: var(--color-text-muted); display: block; margin-bottom: 6px;">Dostępne tagi ze słownika (kliknij, aby dodać/usunąć):</span>
+                                <div id="formAvailableTagsContainer" class="form-available-tags"></div>
                             </div>
                         </div>
                     </div>
@@ -554,7 +556,7 @@
     <!-- STOPKA (Ukryta na ekranie powitalnym) -->
     <footer class="app-footer" id="appFooter" style="display: none;">
         <div class="footer-content">
-            <span>&copy; NKMM Baza Gier - Osobisty rejestr rozgrywek | Wersja 1.1</span>
+            <span>&copy; NKMM Baza Gier - Osobisty rejestr rozgrywek | Wersja 1.1.1</span>
         </div>
     </footer>
 

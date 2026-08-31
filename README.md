@@ -1,4 +1,4 @@
-# NKMM Baza Gier — Wersja 1.1
+# NKMM Baza Gier — Wersja 1.1.1
 
 Osobisty rejestr rozgrywek, biblioteka gier oraz panel statystyk i porównań graczy. Nowoczesna, w pełni responsywna aplikacja webowa typu serverless, hostowana bezpłatnie na GitHub Pages, komunikująca się bezpośrednio z arkuszem Google Sheets jako bazą danych za pośrednictwem Google Apps Script.
 

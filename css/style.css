@@ -894,6 +894,7 @@ body {
     width: 16px;
     height: 16px;
     object-fit: contain;
+    filter: brightness(0) invert(1);
 }
 
 .filter-active-count {
@@ -1238,6 +1239,28 @@ body {
     line-height: 1.2;
 }
 
+.form-available-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    padding: 8px;
+    background-color: var(--color-bg);
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--color-border);
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.form-tag-badge {
+    cursor: pointer;
+    background-color: transparent;
+    transition: transform var(--transition-fast), filter var(--transition-fast), outline var(--transition-fast);
+}
+
+.form-tag-badge:hover {
+    filter: brightness(1.2);
+}
+
 /* ===================================================
    SEKCJA WYKRESÓW I PORÓWNAŃ (TAB 2)
    =================================================== */
@@ -1405,17 +1428,29 @@ body {
 .chart-dual-bars {
     display: flex;
     flex-direction: column;
-    gap: 3px;
+    gap: 4px;
+    width: 100%;
+    min-width: 0;
 }
 
 .chart-single-bar-container {
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: 8px;
+    width: 100%;
+    min-width: 0;
+}
+
+.chart-single-bar-track {
+    flex: 1;
+    min-width: 0;
+    height: 14px;
+    display: flex;
+    align-items: center;
 }
 
 .chart-single-bar-fill {
-    height: 12px;
+    height: 100%;
     border-radius: 2px;
     transition: width 0.3s ease;
 }
@@ -1424,6 +1459,9 @@ body {
     font-size: 11px;
     color: var(--color-text-muted);
     font-weight: bold;
+    flex-shrink: 0;
+    min-width: 22px;
+    text-align: right;
 }
 
 /* Wykres kołowy (Donut) */
@@ -1654,7 +1692,16 @@ body {
     max-height: 90vh;
     display: flex;
     flex-direction: column;
+    overflow: hidden;
     box-shadow: 0 16px 40px rgba(0, 0, 0, 0.6);
+}
+
+.modal-window form {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    flex: 1 1 auto;
+    overflow: hidden;
 }
 
 .modal-small { max-width: 420px; }
@@ -1667,6 +1714,7 @@ body {
     display: flex;
     justify-content: space-between;
     align-items: center;
+    flex-shrink: 0;
 }
 
 .modal-header h2 {
@@ -1678,6 +1726,8 @@ body {
     padding: 18px;
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
+    min-height: 0;
+    flex: 1 1 auto;
 }
 
 .modal-footer {
@@ -1689,6 +1739,7 @@ body {
     background-color: var(--color-bg);
     border-bottom-left-radius: var(--radius-lg);
     border-bottom-right-radius: var(--radius-lg);
+    flex-shrink: 0;
 }
 
 .modal-hint {
@@ -1857,6 +1908,81 @@ body {
 
 .data-table tr:hover {
     background-color: var(--color-surface-hover);
+}
+
+.table-menu-container {
+    position: relative;
+    display: inline-block;
+}
+
+.btn-table-menu {
+    background: transparent;
+    border: 1px solid transparent;
+    color: var(--color-text-muted);
+    font-size: 18px;
+    line-height: 1;
+    width: 28px;
+    height: 28px;
+    border-radius: 4px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: background-color var(--transition-fast), color var(--transition-fast), border-color var(--transition-fast);
+}
+
+.btn-table-menu:hover,
+.table-menu-container.active .btn-table-menu {
+    background-color: var(--color-surface-hover);
+    color: var(--color-text-main);
+    border-color: var(--color-border);
+}
+
+.table-menu-dropdown {
+    display: none;
+    position: absolute;
+    right: 0;
+    top: calc(100% + 2px);
+    z-index: 100;
+    background-color: #1a1e24;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.6);
+    min-width: 100px;
+    padding: 4px;
+}
+
+.table-menu-container.active .table-menu-dropdown {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.table-menu-item {
+    background: transparent;
+    border: none;
+    color: var(--color-text-main);
+    font-family: var(--font-family-main);
+    font-size: 13px;
+    text-align: left;
+    padding: 6px 10px;
+    border-radius: 3px;
+    cursor: pointer;
+    transition: background-color var(--transition-fast), color var(--transition-fast);
+    width: 100%;
+    white-space: nowrap;
+}
+
+.table-menu-item:hover {
+    background-color: var(--color-surface-hover);
+}
+
+.table-menu-item-danger {
+    color: var(--color-danger);
+}
+
+.table-menu-item-danger:hover {
+    background-color: var(--color-danger-bg);
 }
 
 .empty-state {
@@ -2057,6 +2183,41 @@ body {
         flex: 100%;
     }
 
+    /* Wiersz ocen w jednej linii na telefonie */
+    .ratings-form-row {
+        display: grid !important;
+        grid-template-columns: repeat(4, 1fr) !important;
+        gap: 6px !important;
+        flex-direction: row !important;
+        margin-bottom: 12px !important;
+    }
+
+    .ratings-form-row .col-rating {
+        flex: none !important;
+        width: 100% !important;
+        margin-bottom: 0 !important;
+    }
+
+    .ratings-form-row .rating-label {
+        font-size: 11px !important;
+        white-space: nowrap !important;
+        overflow: hidden !important;
+        text-overflow: ellipsis !important;
+        margin-bottom: 3px !important;
+        text-align: center !important;
+        display: block !important;
+    }
+
+    .ratings-form-row .rating-scale {
+        display: none !important;
+    }
+
+    .ratings-form-row .rating-input {
+        padding: 6px 2px !important;
+        font-size: 13px !important;
+        text-align: center !important;
+    }
+
     .footer-content {
         flex-direction: column;
         gap: 6px;
@@ -2064,27 +2225,40 @@ body {
     }
 
     .modal-backdrop {
-        padding: 6px;
+        padding: 8px 6px;
     }
 
     .modal-window {
-        max-height: 94vh;
+        max-height: 92vh;
+        border-radius: var(--radius-md);
     }
 
-    /* Optymalizacja wykresów pod ekrany telefonów */
+    .modal-body {
+        padding: 14px 10px;
+    }
+
+    /* Optymalizacja wykresów pod ekrany telefonów (brak poziomego scrolla) */
     .charts-grid {
         grid-template-columns: 1fr !important;
         gap: 12px;
+        width: 100%;
+        max-width: 100%;
+        box-sizing: border-box;
     }
 
     .chart-card {
         padding: 12px 10px;
+        width: 100%;
+        max-width: 100%;
+        box-sizing: border-box;
+        overflow: hidden;
     }
 
     .chart-card-header {
         flex-direction: column;
         align-items: flex-start;
         gap: 8px;
+        width: 100%;
     }
 
     .chart-card-header h3 {
@@ -2106,8 +2280,11 @@ body {
     .chart-dual-row {
         grid-template-columns: 1fr !important;
         gap: 4px;
-        padding: 6px 4px;
+        padding: 6px 2px;
         border-bottom: 1px solid var(--color-border-subtle);
+        width: 100%;
+        max-width: 100%;
+        box-sizing: border-box;
     }
 
     .chart-dual-row:last-child {
@@ -2118,30 +2295,61 @@ body {
         font-size: 13px;
         margin-bottom: 2px;
         white-space: normal;
+        word-break: break-word;
     }
 
     .chart-dual-bars {
         width: 100%;
+        max-width: 100%;
         gap: 4px;
+        box-sizing: border-box;
     }
 
     .chart-single-bar-container {
         width: 100%;
-        gap: 8px;
+        max-width: 100%;
+        gap: 6px;
+        box-sizing: border-box;
+    }
+
+    .chart-single-bar-track {
+        flex: 1;
+        min-width: 0;
+        height: 14px;
     }
 
     .chart-single-bar-fill {
         height: 14px;
+        border-radius: 2px;
+    }
+
+    .chart-single-bar-val {
+        font-size: 11px;
+        min-width: 20px;
+        text-align: right;
+        flex-shrink: 0;
     }
 
     .donut-wrapper {
         flex-direction: column;
         align-items: center;
         gap: 14px;
+        width: 100%;
+        max-width: 100%;
+        box-sizing: border-box;
     }
 
     .donut-legend-list {
         width: 100%;
+        max-width: 100%;
         max-height: unset;
+        box-sizing: border-box;
+    }
+
+    .line-chart-svg {
+        width: 100% !important;
+        height: auto !important;
+        max-width: 100% !important;
+        display: block !important;
     }
 }
