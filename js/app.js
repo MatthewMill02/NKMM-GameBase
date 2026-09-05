@@ -9,6 +9,31 @@
 // Adres wdrożonej aplikacji Google Apps Script
 const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwMoziDDLE2_1OcBPpwt4kNhF1jLmbPkumknpOmAeAgsJ5W_Vud6V12WrLjbOrJo43e/exec";
 
+// Klucz RAWG API do pobierania okładek gier
+const RAWG_API_KEY = "1deb5e6875fb4296b30f7e86ea3c562b";
+
+async function fetchRawgCoverDirect(title) {
+    if (!title) return "";
+    try {
+        let cleanTitle = title.toString().trim();
+        cleanTitle = cleanTitle.replace(/\s*[\(\[][^\)\]]*[\)\]]/g, "").trim();
+        if (!cleanTitle) cleanTitle = title.toString().trim();
+
+        const url = "https://api.rawg.io/api/games?key=" + RAWG_API_KEY + "&search=" + encodeURIComponent(cleanTitle) + "&page_size=1";
+        const res = await fetch(url);
+        if (res.ok) {
+            const data = await res.json();
+            if (data.results && data.results.length > 0) {
+                if (data.results[0].background_image) return data.results[0].background_image;
+                if (data.results[0].short_screenshots && data.results[0].short_screenshots.length > 0) {
+                    return data.results[0].short_screenshots[0].image || "";
+                }
+            }
+        }
+    } catch (e) {}
+    return "";
+}
+
 // Klucze pamięci sesyjnej i lokalnej
 const CACHE_KEYS = {
     USERS: "nkmm_cache_users",
@@ -53,7 +78,8 @@ const state = {
         statuses: new Set(),
         platforms: new Set(),
         collections: new Set(),
-        sort: "updated_desc"
+        sort: "updated_desc",
+        group: "none"
     }
 };
 
@@ -62,19 +88,10 @@ const state = {
 // ===================================================
 
 document.addEventListener("DOMContentLoaded", () => {
-    // Przywrócenie trwałej sesji administratora z localStorage
-    try {
-        const savedAuth = localStorage.getItem(CACHE_KEYS.ADMIN_AUTH);
-        if (savedAuth) {
-            state.isAdmin = true;
-            state.adminPassword = savedAuth;
-        }
-    } catch (e) {}
-
     initEvents();
     initSessionCache();
     loadSyncQueueFromStorage();
-    applyAdminUiState();
+    checkAdminStatusForUser(state.currentUser);
     showWelcomeScreen();
 });
 
@@ -117,6 +134,14 @@ function initEvents() {
     const btnMobileSettings = document.getElementById("btnMobileSettings");
     if (btnMobileSettings) btnMobileSettings.addEventListener("click", () => { closeMobileDrawer(); openStatsModal(); });
 
+    const btnMobileSyncCovers = document.getElementById("btnMobileSyncCovers");
+    if (btnMobileSyncCovers) {
+        btnMobileSyncCovers.addEventListener("click", () => {
+            closeMobileDrawer();
+            handleSyncMissingCovers();
+        });
+    }
+
     const btnMobileAdmin = document.getElementById("btnMobileAdmin");
     if (btnMobileAdmin) btnMobileAdmin.addEventListener("click", () => {
         closeMobileDrawer();
@@ -127,16 +152,25 @@ function initEvents() {
         }
     });
 
+    const btnMobileAddGame = document.getElementById("btnMobileAddGame");
+    if (btnMobileAddGame) {
+        btnMobileAddGame.addEventListener("click", () => openGameEditModal(null));
+    }
+
     const btnMobileRefresh = document.getElementById("btnMobileRefresh");
     if (btnMobileRefresh) btnMobileRefresh.addEventListener("click", handleForceRefreshAll);
 
-    // Przełącznik widoczności filtrów na telefonie
-    const btnToggleMobileFilters = document.getElementById("btnToggleMobileFilters");
+    // Przełącznik widoczności filtrów (Desktop + Mobile)
+    const btnToggleFilters = document.getElementById("btnToggleFilters") || document.getElementById("btnToggleMobileFilters");
     const filtersRow = document.getElementById("filtersRow");
-    if (btnToggleMobileFilters && filtersRow) {
-        btnToggleMobileFilters.addEventListener("click", () => {
-            const isOpen = filtersRow.classList.toggle("mobile-open");
-            btnToggleMobileFilters.classList.toggle("active", isOpen);
+    const filterCaret = document.getElementById("filterToggleCaret");
+    if (btnToggleFilters && filtersRow) {
+        btnToggleFilters.addEventListener("click", () => {
+            const isOpen = filtersRow.classList.toggle("open");
+            filtersRow.classList.toggle("mobile-open", isOpen);
+            btnToggleFilters.classList.toggle("active", isOpen);
+            filtersRow.style.display = isOpen ? "flex" : "none";
+            if (filterCaret) filterCaret.textContent = isOpen ? "^" : "v";
         });
     }
 
@@ -219,7 +253,8 @@ function initEvents() {
             const cat = editBtn.getAttribute("data-category");
             const val = editBtn.getAttribute("data-val");
             const desc = editBtn.getAttribute("data-desc");
-            openEditSettingModal(cat, val, desc);
+            const color = editBtn.getAttribute("data-color");
+            openEditSettingModal(cat, val, desc, color);
             return;
         }
         const delBtn = e.target.closest(".btn-setting-delete");
@@ -269,6 +304,14 @@ function initEvents() {
         state.filters.sort = e.target.value;
         renderGamesGrid();
     });
+
+    const groupSelect = document.getElementById("groupSelect");
+    if (groupSelect) {
+        groupSelect.addEventListener("change", (e) => {
+            state.filters.group = e.target.value;
+            renderGamesGrid();
+        });
+    }
 
     document.getElementById("btnResetFilters").addEventListener("click", resetFilters);
 
@@ -406,9 +449,114 @@ function initEvents() {
     document.getElementById("editSettingForm").addEventListener("submit", handleSaveEditSetting);
 
     // Dodawanie do słowników
-    document.getElementById("btnAddStan").addEventListener("click", () => handleAddSetting("Stan", "newStanVal", "newStanDesc"));
+    document.getElementById("btnAddStan").addEventListener("click", () => handleAddSetting("Stan", "newStanVal", "newStanDesc", "newStanColor"));
     document.getElementById("btnAddKol").addEventListener("click", () => handleAddSetting("Kolekcje", "newKolVal", "newKolDesc"));
     document.getElementById("btnAddPlat").addEventListener("click", () => handleAddSetting("Platformy", "newPlatVal"));
+
+    // Synchronizacja wyboru koloru nowego stanu w Ustawieniach
+    const newStanColorInput = document.getElementById("newStanColor");
+    const newStanColorPicker = document.getElementById("newStanColorPicker");
+    if (newStanColorPicker && newStanColorInput) {
+        newStanColorPicker.addEventListener("input", (e) => {
+            newStanColorInput.value = e.target.value;
+        });
+        newStanColorInput.addEventListener("input", (e) => {
+            const val = e.target.value.trim();
+            if (/^#[0-9A-Fa-f]{6}$/.test(val)) {
+                newStanColorPicker.value = val;
+            }
+        });
+    }
+
+    // Synchronizacja wyboru koloru w modalu edycji stanu
+    const editSettingNewColor = document.getElementById("editSettingNewColor");
+    const editSettingNewColorPicker = document.getElementById("editSettingNewColorPicker");
+    if (editSettingNewColorPicker && editSettingNewColor) {
+        editSettingNewColorPicker.addEventListener("input", (e) => {
+            editSettingNewColor.value = e.target.value;
+        });
+        editSettingNewColor.addEventListener("input", (e) => {
+            const val = e.target.value.trim();
+            if (/^#[0-9A-Fa-f]{6}$/.test(val)) {
+                editSettingNewColorPicker.value = val;
+            }
+        });
+    }
+
+    // Podgląd pastelowy na żywo w formularzu gry po zmianie stanu lub tytułu
+    const formGameStatusSelect = document.getElementById("formGameStatus");
+    const formTitleInput = document.getElementById("formGameTitle");
+
+    if (formGameStatusSelect) {
+        formGameStatusSelect.addEventListener("change", () => {
+            updateFormColorPreview();
+        });
+    }
+
+    if (formTitleInput) {
+        formTitleInput.addEventListener("input", (e) => {
+            updateFormColorPreview(e.target.value.trim());
+        });
+    }
+
+    // Obsługa pobierania okładek RAWG w formularzu
+    const btnFetchCoverSingle = document.getElementById("btnFetchCoverSingle");
+    if (btnFetchCoverSingle) {
+        btnFetchCoverSingle.addEventListener("click", async () => {
+            const titleInput = document.getElementById("formGameTitle");
+            const imageInput = document.getElementById("formGameImage");
+            const previewBox = document.getElementById("formCoverPreviewBox");
+            const previewImg = document.getElementById("formCoverPreviewImg");
+
+            const title = (titleInput ? titleInput.value : "").trim();
+            if (!title) {
+                alert("Wpisz najpierw tytuł gry, aby wyszukać okładkę.");
+                return;
+            }
+
+            btnFetchCoverSingle.disabled = true;
+            btnFetchCoverSingle.textContent = "Szukanie...";
+
+            try {
+                const res = await sendApiRequest({ action: "fetchCover", title: title });
+                if (res.status === "success" && res.data && res.data.coverUrl) {
+                    if (imageInput) imageInput.value = res.data.coverUrl;
+                    if (previewImg && previewBox) {
+                        previewImg.src = res.data.coverUrl;
+                        previewBox.style.display = "block";
+                    }
+                } else {
+                    alert(`Nie znaleziono okładki w RAWG dla tytułu: "${title}"`);
+                }
+            } catch (err) {
+                alert("Błąd podczas pobierania okładki z RAWG.");
+            } finally {
+                btnFetchCoverSingle.disabled = false;
+                btnFetchCoverSingle.textContent = "Pobierz z RAWG";
+            }
+        });
+    }
+
+    const formGameImage = document.getElementById("formGameImage");
+    if (formGameImage) {
+        formGameImage.addEventListener("input", (e) => {
+            const previewBox = document.getElementById("formCoverPreviewBox");
+            const previewImg = document.getElementById("formCoverPreviewImg");
+            const url = e.target.value.trim();
+            if (url && previewBox && previewImg) {
+                previewImg.src = url;
+                previewBox.style.display = "block";
+            } else if (previewBox) {
+                previewBox.style.display = "none";
+            }
+        });
+    }
+
+    // Masowa synchronizacja brakujących okładek (RAWG)
+    const btnSyncCovers = document.getElementById("btnSyncCovers");
+    if (btnSyncCovers) {
+        btnSyncCovers.addEventListener("click", handleSyncMissingCovers);
+    }
 
     // Zmiana rozmiaru okna
     window.addEventListener("resize", () => {
@@ -436,8 +584,13 @@ function initSessionCache() {
         const cachedSettings = sessionStorage.getItem(CACHE_KEYS.SETTINGS);
         if (cachedSettings) {
             const parsed = JSON.parse(cachedSettings);
-            state.settings = parsed;
-            state.cache.settings = parsed;
+            const hasColorCol = parsed && parsed.stan && Array.isArray(parsed.stan.rows) && parsed.stan.rows.some(r => r["Kolor"] !== undefined || r["kolor"] !== undefined);
+            if (hasColorCol) {
+                state.settings = parsed;
+                state.cache.settings = parsed;
+            } else {
+                sessionStorage.removeItem(CACHE_KEYS.SETTINGS);
+            }
         }
     } catch (e) {
         console.warn("Błąd odczytu pamięci sesyjnej:", e);
@@ -922,43 +1075,70 @@ function isGameInShowcase(game) {
 }
 
 function renderProfileShowcase() {
-    const grid = document.getElementById("showcaseGrid");
-    if (!grid || !state.currentUser) return;
+    const container = document.getElementById("showcaseShelfContainer") || document.getElementById("showcaseGrid");
+    if (!container || !state.currentUser) return;
 
-    const showcaseGames = state.games.filter(g => isGameInShowcase(g));
+    // Aplikacja pozwala na maksymalnie 8 wyróżnionych gier w gablocie
+    const showcaseGames = state.games.filter(g => isGameInShowcase(g)).slice(0, 8);
 
     if (showcaseGames.length === 0) {
-        grid.innerHTML = '<p class="showcase-empty-hint">Brak wyróżnionych gier w gablocie. Dodaj tag "Gablota" w edycji gry lub użyj przycisku poniżej.</p>';
+        container.innerHTML = '<p class="showcase-empty-hint">Brak wyróżnionych gier w gablocie. Dodaj tag "Gablota" w edycji gry lub użyj przycisku powyżej.</p>';
         return;
     }
 
-    grid.innerHTML = "";
-    showcaseGames.forEach(game => {
-        const card = document.createElement("div");
-        card.className = "showcase-card";
-        
-        const title = escapeHtml(game["Tytuł"] || "Brak tytułu");
-        const rawRating = game["Ocena gry"];
-        const hasRating = rawRating !== "" && rawRating !== undefined && rawRating !== null && rawRating !== "-";
-        const rating = hasRating ? `${rawRating}/10` : "";
-        const ratingBadgeHtml = hasRating ? `<span class="game-rating-badge">${rating}</span>` : "";
-        const platform = escapeHtml(game["Platforma"] || "-");
-        const status = escapeHtml(game["Stan"] || "-");
+    container.innerHTML = "";
+    const showcaseShelf = document.createElement("div");
+    showcaseShelf.className = "game-shelf-unit shelf-unit-showcase";
 
-        card.innerHTML = `
-            <div class="showcase-title" title="${title}">${title}</div>
-            <div class="showcase-meta">
-                <span>${platform} | ${status}</span>
-                ${ratingBadgeHtml}
-            </div>
-        `;
+    // GÓRNY POZIOM: 3 poziome po lewej + 1 pionowa pochylona o 30 stopni po prawej
+    const topTier = document.createElement("div");
+    topTier.className = "shelf-tier tier-top";
 
-        card.addEventListener("click", () => {
-            openGameDetailsModal(game);
-        });
+    const topLeftStack = document.createElement("div");
+    topLeftStack.className = "shelf-stack stack-left";
+    for (let idx = 0; idx < 3; idx++) {
+        const game = showcaseGames[idx];
+        if (game) {
+            topLeftStack.appendChild(createSpineElement(game, "horizontal"));
+        }
+    }
+    topTier.appendChild(topLeftStack);
 
-        grid.appendChild(card);
-    });
+    const topRightSlot = document.createElement("div");
+    topRightSlot.className = "shelf-lean-slot";
+    const topLeanGame = showcaseGames[3];
+    if (topLeanGame) {
+        topRightSlot.appendChild(createSpineElement(topLeanGame, "vertical", "leaned-right"));
+    }
+    topTier.appendChild(topRightSlot);
+
+    showcaseShelf.appendChild(topTier);
+
+    // DOLNY POZIOM: 1 pionowa po lewej + 3 poziome po prawej
+    const bottomTier = document.createElement("div");
+    bottomTier.className = "shelf-tier tier-bottom";
+
+    const bottomLeftSlot = document.createElement("div");
+    bottomLeftSlot.className = "shelf-vertical-slot";
+    const bottomStandGame = showcaseGames[4];
+    if (bottomStandGame) {
+        bottomLeftSlot.appendChild(createSpineElement(bottomStandGame, "vertical", "upright"));
+    }
+    bottomTier.appendChild(bottomLeftSlot);
+
+    const bottomRightStack = document.createElement("div");
+    bottomRightStack.className = "shelf-stack stack-right";
+    for (let idx = 5; idx < 8; idx++) {
+        const game = showcaseGames[idx];
+        if (game) {
+            bottomRightStack.appendChild(createSpineElement(game, "horizontal"));
+        }
+    }
+    bottomTier.appendChild(bottomRightStack);
+
+    showcaseShelf.appendChild(bottomTier);
+
+    container.appendChild(showcaseShelf);
 }
 
 function openShowcaseEditModal() {
@@ -979,9 +1159,35 @@ function openShowcaseEditModal() {
             <span><strong>${escapeHtml(game["Tytuł"] || "Brak")}</strong> (${escapeHtml(game["Platforma"] || "-")} - ${game["Ocena gry"] || "-"})</span>
         `;
 
+        const checkbox = label.querySelector("input");
+        checkbox.addEventListener("change", () => {
+            updateShowcaseCheckboxesLimit();
+        });
+
         checklist.appendChild(label);
     });
 
+    const updateShowcaseCheckboxesLimit = () => {
+        const allCheckboxes = Array.from(checklist.querySelectorAll("input[type='checkbox']"));
+        const checkedBoxes = allCheckboxes.filter(cb => cb.checked);
+        const count = checkedBoxes.length;
+        const countEl = document.getElementById("showcaseSelectedCount");
+        if (countEl) countEl.textContent = `(${count}/8)`;
+
+        allCheckboxes.forEach(cb => {
+            if (!cb.checked) {
+                cb.disabled = count >= 8;
+                cb.parentElement.style.opacity = count >= 8 ? "0.45" : "1";
+                cb.parentElement.style.cursor = count >= 8 ? "not-allowed" : "pointer";
+            } else {
+                cb.disabled = false;
+                cb.parentElement.style.opacity = "1";
+                cb.parentElement.style.cursor = "pointer";
+            }
+        });
+    };
+
+    updateShowcaseCheckboxesLimit();
     openModal("showcaseEditModal");
 }
 
@@ -1011,7 +1217,7 @@ function handleSaveShowcase() {
     const checkboxes = document.querySelectorAll("#showcaseGamesChecklist input[type='checkbox']");
     const selectedIds = new Set();
     checkboxes.forEach(cb => {
-        if (cb.checked) selectedIds.add(cb.value);
+        if (cb.checked && selectedIds.size < 8) selectedIds.add(cb.value);
     });
 
     // Modyfikacja tagu "Gablota" w state.games
@@ -1669,6 +1875,7 @@ function renderRatingsComparisonBars(mmGames, nkGames, mmUser, nkUser) {
 function switchUserProfile(user) {
     state.currentUser = user;
     applyUserTheme(user);
+    checkAdminStatusForUser(user);
     showDashboardScreen();
 
     // Natychmiastowa aktualizacja nagłówka oraz belki profilu
@@ -1891,12 +2098,293 @@ async function sendApiRequestWithRetry(params, customPassword = null, retries = 
 
 // ===================================================
 // POBIERANIE I WYŚWIETLANIE GIER
-// ===================================================
+// Kolejność priorytetów stanów przy wyświetlaniu grup na półkach
+const STATUS_GROUP_ORDER = [
+    "Gram teraz",
+    "Singleplayer",
+    "Multiplayer",
+    "Chcę zagrać",
+    "Ukończona",
+    "Ukończona+",
+    "100'%",
+    "100%",
+    "PLATYNA",
+    "Wstrzymana",
+    "Pozostawiona",
+    "Porzucona",
+    "Bezkresna"
+];
+
+function formatSpineTitle(title, maxChars = 20) {
+    if (!title) return "";
+    const clean = title.trim();
+    if (clean.length <= maxChars) return clean;
+    
+    // Obcinamy do maxChars i ucinamy do ostatniego pełnego słowa
+    const slice = clean.substring(0, maxChars);
+    const lastSpace = slice.lastIndexOf(" ");
+    if (lastSpace > 2) {
+        return slice.substring(0, lastSpace);
+    }
+    return slice;
+}
+
+function isMobileView() {
+    return window.innerWidth <= 768;
+}
+
+function selectGameForMonitor(game, spineEl = null) {
+    if (!game) return;
+
+    if (isMobileView()) {
+        openGameDetailsModal(game);
+        return;
+    }
+
+    if (state.selectedGame && String(state.selectedGame.id) === String(game.id)) {
+        // Ponowne kliknięcie w tę samą grę - odznaczenie (deselect)
+        state.selectedGame = null;
+        document.querySelectorAll(".game-spine.active").forEach(el => el.classList.remove("active"));
+        renderMonitorGameDetails(null);
+        return;
+    }
+
+    state.selectedGame = game;
+    document.querySelectorAll(".game-spine.active").forEach(el => el.classList.remove("active"));
+    if (spineEl) {
+        spineEl.classList.add("active");
+    } else if (game) {
+        const matching = document.querySelector(`.game-spine[data-game-id="${game.id}"]`);
+        if (matching) matching.classList.add("active");
+    }
+    renderMonitorGameDetails(game);
+}
+
+function openGameDetailsModal(game) {
+    if (!game) return;
+    const modal = document.getElementById("gameDetailsModal");
+    const titleEl = document.getElementById("detailsGameTitle");
+    const bodyEl = document.getElementById("gameDetailsModalBody");
+    const adminActions = document.getElementById("detailsAdminActions");
+
+    if (!modal || !bodyEl) return;
+
+    const title = escapeHtml(game["Tytuł"] || "Brak tytułu");
+    const status = escapeHtml(game["Stan"] || "-");
+    const platform = escapeHtml(game["Platforma"] || "-");
+    const rawRating = game["Ocena gry"];
+    const hasRating = rawRating !== "" && rawRating !== undefined && rawRating !== null && rawRating !== "-";
+    const rating = hasRating ? `${rawRating}/10` : "-";
+
+    const fabuła = game["Ocena fabuły"] !== "" && game["Ocena fabuły"] !== undefined ? `${game["Ocena fabuły"]}/10` : "-";
+    const grafika = game["Ocena grafiki"] !== "" && game["Ocena grafiki"] !== undefined ? `${game["Ocena grafiki"]}/10` : "-";
+    const mechanika = game["Ocena mechanik"] !== "" && game["Ocena mechanik"] !== undefined ? `${game["Ocena mechanik"]}/10` : "-";
+
+    const hours = game["Liczba godzin"] ? `${game["Liczba godzin"]}` : "";
+    const date = game["Data ukończenia"] ? formatDate(game["Data ukończenia"]) : "";
+    const review = game["Recenzja"] || "";
+    const coverUrl = (game["Obraz"] || game["obraz"] || "").trim();
+
+    const rawTags = (game["Kolekcje"] || "").split(",").map(t => t.trim()).filter(Boolean);
+    const isDemo = rawTags.some(t => t.toLowerCase() === "demo");
+    const visibleTags = rawTags.filter(t => {
+        const low = t.toLowerCase();
+        return low !== "demo" && low !== "gablota";
+    });
+
+    const demoBadgeHtml = isDemo ? `<span class="demo-tag-label" style="font-size: 11px; padding: 1px 6px; background: #9c27b0; color: #fff; border-radius: 3px; margin-left: 6px;">Demo</span>` : "";
+    const tagsHtml = visibleTags.map(t => {
+        const col = getTagColor(t);
+        return `<span class="tag-pill" style="background-color: ${col.bg}; border-color: ${col.border}; color: ${col.text}; font-size: 11px;">${escapeHtml(t)}</span>`;
+    }).join("");
+
+    if (titleEl) titleEl.innerHTML = `${title}${demoBadgeHtml}`;
+
+    bodyEl.innerHTML = `
+        ${coverUrl ? `
+            <div class="modal-game-cover-banner" style="background-image: url('${escapeHtml(coverUrl)}');"></div>
+        ` : ""}
+        <div class="game-meta-row" style="margin-bottom: 12px;">
+            <span class="badge-status">${status}</span>
+            <span class="badge-platform">${platform}</span>
+            ${hours ? `<span class="badge-platform">${hours}h</span>` : ""}
+            ${date ? `<span class="badge-platform">Ukończono: ${date}</span>` : ""}
+        </div>
+
+        <div class="ratings-breakdown-box" style="background: var(--color-bg); padding: 10px 12px; border-radius: var(--radius-sm); border: 1px solid var(--color-border-subtle); margin-bottom: 14px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; border-bottom: 1px solid var(--color-border-subtle); padding-bottom: 6px;">
+                <span style="font-weight: bold; font-size: 14px;">Ocena główna:</span>
+                <span class="game-rating-badge" style="font-size: 15px; padding: 3px 8px;">${rating}</span>
+            </div>
+            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; text-align: center; font-size: 12px;">
+                <div><span style="color: var(--color-text-muted); display: block;">Fabuła</span><strong>${fabuła}</strong></div>
+                <div><span style="color: var(--color-text-muted); display: block;">Grafika</span><strong>${grafika}</strong></div>
+                <div><span style="color: var(--color-text-muted); display: block;">Mechanika</span><strong>${mechanika}</strong></div>
+            </div>
+        </div>
+
+        ${tagsHtml ? `
+            <div style="margin-bottom: 12px;">
+                <span style="font-size: 11px; color: var(--color-text-muted); text-transform: uppercase; font-weight: bold; display: block; margin-bottom: 4px;">Kolekcje / Tagi:</span>
+                <div class="game-tags" style="margin: 0; border: none; padding: 0;">${tagsHtml}</div>
+            </div>
+        ` : ""}
+
+        ${review ? `
+            <div style="margin-bottom: 10px;">
+                <span style="font-size: 11px; color: var(--color-text-muted); text-transform: uppercase; font-weight: bold; display: block; margin-bottom: 4px;">Recenzja / Notatka:</span>
+                <div class="game-review-snippet" style="margin: 0; border: none; padding: 0; white-space: pre-wrap;">${escapeHtml(review)}</div>
+            </div>
+        ` : ""}
+    `;
+
+    if (adminActions) {
+        adminActions.style.display = state.isAdmin ? "flex" : "none";
+    }
+
+    const editBtn = document.getElementById("btnDetailsEdit");
+    if (editBtn) {
+        editBtn.onclick = () => {
+            closeModal("gameDetailsModal");
+            openGameEditModal(game);
+        };
+    }
+
+    const deleteBtn = document.getElementById("btnDetailsDelete");
+    if (deleteBtn) {
+        deleteBtn.onclick = () => {
+            closeModal("gameDetailsModal");
+            handleDeleteGame(game.id, game["Tytuł"]);
+        };
+    }
+
+    openModal("gameDetailsModal");
+}
+
+function renderMonitorGameDetails(game) {
+    const screen = document.getElementById("mcMonitorScreen");
+    if (!screen) return;
+
+    if (!game) {
+        screen.innerHTML = "";
+        return;
+    }
+
+    const title = escapeHtml(game["Tytuł"] || "Brak tytułu");
+    const status = escapeHtml(game["Stan"] || "-");
+    const platform = escapeHtml(game["Platforma"] || "-");
+    const rawRating = game["Ocena gry"];
+    const hasRating = rawRating !== "" && rawRating !== undefined && rawRating !== null && rawRating !== "-";
+    const rating = hasRating ? `${rawRating}/10` : "-";
+
+    const fabuła = game["Ocena fabuły"] !== "" && game["Ocena fabuły"] !== undefined ? `${game["Ocena fabuły"]}/10` : "-";
+    const grafika = game["Ocena grafiki"] !== "" && game["Ocena grafiki"] !== undefined ? `${game["Ocena grafiki"]}/10` : "-";
+    const mechanika = game["Ocena mechanik"] !== "" && game["Ocena mechanik"] !== undefined ? `${game["Ocena mechanik"]}/10` : "-";
+
+    const hours = game["Liczba godzin"] ? `${game["Liczba godzin"]}` : "";
+    const date = game["Data ukończenia"] ? formatDate(game["Data ukończenia"]) : "";
+    const review = game["Recenzja"] || "";
+    const coverUrl = (game["Obraz"] || game["obraz"] || "").trim();
+
+    const rawTags = (game["Kolekcje"] || "").split(",").map(t => t.trim()).filter(Boolean);
+    const isDemo = rawTags.some(t => t.toLowerCase() === "demo");
+    const visibleTags = rawTags.filter(t => {
+        const low = t.toLowerCase();
+        return low !== "demo" && low !== "gablota";
+    });
+
+    const demoBadgeHtml = isDemo ? `<span class="demo-tag-label" style="font-size: 11px; padding: 1px 6px; background: #9c27b0; color: #fff; border-radius: 3px; margin-left: 6px;">Demo</span>` : "";
+    const tagsHtml = visibleTags.map(t => {
+        const col = getTagColor(t);
+        return `<span class="tag-pill" style="background-color: ${col.bg}; border-color: ${col.border}; color: ${col.text}; font-size: 11px;">${escapeHtml(t)}</span>`;
+    }).join("");
+
+    let adminPanelHtml = "";
+    if (state.isAdmin) {
+        adminPanelHtml = `
+            <div class="monitor-admin-panel">
+                <button type="button" class="btn-card-action btn-card-edit" id="btnMonitorEdit" data-id="${game.id}">Edytuj grę</button>
+                <button type="button" class="btn-card-action btn-card-delete" id="btnMonitorDelete" data-id="${game.id}">Usuń grę</button>
+            </div>
+        `;
+    }
+
+    screen.innerHTML = `
+        <div class="monitor-details-content">
+            ${coverUrl ? `
+                <div class="monitor-cover-wrapper" id="monitorCoverBtn" title="Kliknij, aby otworzyć szczegóły gry">
+                    <img src="${escapeHtml(coverUrl)}" alt="${title}" class="monitor-cover-img" onerror="this.parentElement.style.display='none'">
+                </div>
+            ` : ""}
+            <div class="monitor-header-block">
+                <h2 class="monitor-game-title">${title}${demoBadgeHtml}</h2>
+                <div class="monitor-meta-badges">
+                    <span class="badge-status">${status}</span>
+                    <span class="badge-platform">${platform}</span>
+                    ${hours ? `<span class="badge-hours">${hours}h</span>` : ""}
+                </div>
+            </div>
+
+            ${date ? `<div class="monitor-meta-item"><strong>Ukończono:</strong> ${date}</div>` : ""}
+
+            <div class="monitor-ratings-section">
+                <div class="monitor-main-score">
+                    <span class="monitor-score-label">Ocena gry</span>
+                    <span class="monitor-score-val">${rating}</span>
+                </div>
+                <div class="monitor-subscores-grid">
+                    <div class="monitor-subscore-item">
+                        <span class="subscore-name">Fabuła</span>
+                        <span class="subscore-num">${fabuła}</span>
+                    </div>
+                    <div class="monitor-subscore-item">
+                        <span class="subscore-name">Grafika</span>
+                        <span class="subscore-num">${grafika}</span>
+                    </div>
+                    <div class="monitor-subscore-item">
+                        <span class="subscore-name">Mechanika</span>
+                        <span class="subscore-num">${mechanika}</span>
+                    </div>
+                </div>
+            </div>
+
+            ${tagsHtml ? `
+                <div class="monitor-tags-container">
+                    <div class="monitor-section-title">Kolekcje / Tagi:</div>
+                    <div class="game-tags" style="margin-top:0; border-top:none; padding-top:0;">${tagsHtml}</div>
+                </div>
+            ` : ""}
+
+            ${review ? `
+                <div class="monitor-review-section">
+                    <div class="monitor-section-title">Recenzja / Notatka:</div>
+                    <div class="monitor-review-text">${escapeHtml(review)}</div>
+                </div>
+            ` : ""}
+
+            ${adminPanelHtml}
+        </div>
+    `;
+
+    const coverBtn = screen.querySelector("#monitorCoverBtn");
+    if (coverBtn) {
+        coverBtn.addEventListener("click", () => openGameDetailsModal(game));
+    }
+
+    const editBtn = screen.querySelector("#btnMonitorEdit");
+    if (editBtn) {
+        editBtn.addEventListener("click", () => openGameEditModal(game));
+    }
+    const delBtn = screen.querySelector("#btnMonitorDelete");
+    if (delBtn) {
+        delBtn.addEventListener("click", () => handleDeleteGame(game.id, game["Tytuł"]));
+    }
+}
 
 async function loadGamesForUser(sheetName, forceRefresh = false) {
     console.log("[NKMM Baza Gier] >>> loadGamesForUser wywołane dla arkusza:", sheetName, "forceRefresh:", forceRefresh);
     const skeletonLoader = document.getElementById("skeletonLoader");
-    const gamesGrid = document.getElementById("gamesGrid");
+    const shelvesContainer = document.getElementById("gamesShelvesContainer");
     const emptyResults = document.getElementById("emptyResultsMessage");
     const resultsCount = document.getElementById("resultsCount");
 
@@ -1907,25 +2395,25 @@ async function loadGamesForUser(sheetName, forceRefresh = false) {
             state.games = cached;
             updateProfileBanner();
             populateFilterOptions();
-            renderGamesGrid();
-            fetchSettingsAndStats(false); // Wczytanie tabel ustawień w tle
+            await fetchSettingsAndStats(false);
+            renderGamesShelves();
+            renderProfileShowcase();
             return;
         }
     }
 
-    // Resetowanie widoków i statystyk na czas pobierania, aby nie pokazywać danych poprzedniego gracza
     state.games = [];
     document.getElementById("statTotalGames").textContent = "-";
     document.getElementById("statCompletedGames").textContent = "-";
     document.getElementById("statTotalHours").textContent = "-";
     document.getElementById("statAvgRating").textContent = "-";
-    const showcaseGrid = document.getElementById("showcaseGrid");
-    if (showcaseGrid) showcaseGrid.innerHTML = '<p class="showcase-empty-hint">Wczytywanie gabloty...</p>';
+    const showcaseContainer = document.getElementById("showcaseShelfContainer") || document.getElementById("showcaseGrid");
+    if (showcaseContainer) showcaseContainer.innerHTML = '<p class="showcase-empty-hint">Wczytywanie gabloty...</p>';
 
-    skeletonLoader.style.display = "grid";
-    gamesGrid.style.display = "none";
-    emptyResults.style.display = "none";
-    resultsCount.textContent = "Pobieranie bazy gier z chmury...";
+    if (skeletonLoader) skeletonLoader.style.display = "grid";
+    if (shelvesContainer) shelvesContainer.style.display = "none";
+    if (emptyResults) emptyResults.style.display = "none";
+    if (resultsCount) resultsCount.textContent = "Pobieranie bazy gier z chmury...";
 
     try {
         console.log("[NKMM Baza Gier] Wysyłanie zapytania getAllGames do Google Apps Script...");
@@ -1942,42 +2430,45 @@ async function loadGamesForUser(sheetName, forceRefresh = false) {
             setCachedGames(sheetName, state.games);
             updateProfileBanner();
             populateFilterOptions();
-            renderGamesGrid();
-            fetchSettingsAndStats(false); // Wczytanie tabel ustawień w tle zaraz po załadowaniu gier
+            await fetchSettingsAndStats(false);
+            renderGamesShelves();
+            renderProfileShowcase();
         } else {
             console.error("[NKMM Baza Gier] Serwer zwrócił błąd w odpowiedzi:", response.message);
-            resultsCount.innerHTML = `Błąd: ${escapeHtml(response.message || "Nie udało się pobrać gier")} <button type="button" class="btn-link btn-reload-games" data-sheet="${escapeHtml(sheetName)}" style="color: var(--color-primary); font-weight: bold; margin-left: 8px;">[Spróbuj ponownie]</button>`;
-            skeletonLoader.style.display = "none";
+            if (emptyResults) {
+                emptyResults.innerHTML = `<p style="color: var(--color-danger);">Błąd: ${escapeHtml(response.message || "Nie udało się pobrać gier")} <button type="button" class="btn-link btn-reload-games" data-sheet="${escapeHtml(sheetName)}" style="color: var(--color-primary); font-weight: bold; margin-left: 8px;">[Spróbuj ponownie]</button></p>`;
+                emptyResults.style.display = "block";
+            }
+            if (skeletonLoader) skeletonLoader.style.display = "none";
         }
     } catch (error) {
         console.error("[NKMM Baza Gier] Błąd sieciowy / wyjątek w loadGamesForUser:", error);
-        resultsCount.innerHTML = `Błąd sieciowy podczas pobierania danych. <button type="button" class="btn-link btn-reload-games" data-sheet="${escapeHtml(sheetName)}" style="color: var(--color-primary); font-weight: bold; margin-left: 8px;">[Spróbuj ponownie]</button>`;
-        skeletonLoader.style.display = "none";
+        if (emptyResults) {
+            emptyResults.innerHTML = `<p style="color: var(--color-danger);">Błąd sieciowy podczas pobierania danych. <button type="button" class="btn-link btn-reload-games" data-sheet="${escapeHtml(sheetName)}" style="color: var(--color-primary); font-weight: bold; margin-left: 8px;">[Spróbuj ponownie]</button></p>`;
+            emptyResults.style.display = "block";
+        }
+        if (skeletonLoader) skeletonLoader.style.display = "none";
     }
 }
 
-function renderGamesGrid() {
+function renderGamesShelves() {
     const skeletonLoader = document.getElementById("skeletonLoader");
-    const gamesGrid = document.getElementById("gamesGrid");
+    const shelvesContainer = document.getElementById("gamesShelvesContainer");
     const emptyResults = document.getElementById("emptyResultsMessage");
     const resultsCount = document.getElementById("resultsCount");
 
-    skeletonLoader.style.display = "none";
+    if (skeletonLoader) skeletonLoader.style.display = "none";
 
     const selectedStatuses = state.filters.statuses instanceof Set ? state.filters.statuses : new Set();
     const selectedPlatforms = state.filters.platforms instanceof Set ? state.filters.platforms : new Set();
     const selectedCollections = state.filters.collections instanceof Set ? state.filters.collections : new Set();
 
-    console.log("[NKMM Baza Gier] Rozpoczęto renderowanie siatki gier. Łącznie w state.games:", state.games.length);
-    console.log("[NKMM Baza Gier] Aktywne filtry:", {
-        search: state.filters.search,
-        statuses: Array.from(selectedStatuses),
-        platforms: Array.from(selectedPlatforms),
-        collections: Array.from(selectedCollections),
-        sort: state.filters.sort
-    });
-
     let filtered = state.games.filter(game => {
+        // Wyjątek: gry przypisane do gabloty nie wyświetlają się na dolnych półkach
+        if (isGameInShowcase(game)) {
+            return false;
+        }
+
         if (state.filters.search) {
             const query = state.filters.search.toLowerCase();
             const title = (game["Tytuł"] || "").toLowerCase();
@@ -2041,121 +2532,366 @@ function renderGamesGrid() {
         }
     });
 
-    console.log("[NKMM Baza Gier] Gry po przefiltrowaniu do wyświetlenia:", filtered.length);
-
-    resultsCount.textContent = `Wyświetlono: ${filtered.length} z ${state.games.length} tytułów`;
-
     if (filtered.length === 0) {
-        gamesGrid.style.display = "none";
-        emptyResults.style.display = "block";
-        console.warn("[NKMM Baza Gier] Brak wyników do wyświetlenia po filtracji!");
+        if (shelvesContainer) shelvesContainer.style.display = "none";
+        if (emptyResults) emptyResults.style.display = "block";
+        state.selectedGame = null;
+        renderMonitorGameDetails(null);
         return;
     }
 
-    emptyResults.style.display = "none";
-    gamesGrid.style.display = "grid";
-    gamesGrid.innerHTML = "";
+    if (emptyResults) emptyResults.style.display = "none";
+    if (shelvesContainer) {
+        shelvesContainer.style.display = "flex";
+        shelvesContainer.innerHTML = "";
+    }
 
-    filtered.forEach(game => {
-        const card = document.createElement("article");
-        card.className = "game-card";
+    // Ustalenie aktywnej gry dla monitora (jeśli gra była wybrana, sprawdzamy czy nadal jest w wynikach)
+    if (state.selectedGame && !filtered.some(g => String(g.id) === String(state.selectedGame.id))) {
+        state.selectedGame = null;
+    }
+    renderMonitorGameDetails(state.selectedGame);
 
-        const title = escapeHtml(game["Tytuł"] || "Brak tytułu");
-        const status = escapeHtml(game["Stan"] || "-");
-        const platform = escapeHtml(game["Platforma"] || "-");
-        const rawRating = game["Ocena gry"];
-        const hasRating = rawRating !== "" && rawRating !== undefined && rawRating !== null && rawRating !== "-";
-        const rating = hasRating ? `${rawRating}/10` : "";
-        
-        // 3 pod-oceny (Fabuła, Grafika, Mechanika)
-        const fabuła = game["Ocena fabuły"] !== "" && game["Ocena fabuły"] !== undefined ? `${game["Ocena fabuły"]}/10` : "-";
-        const grafika = game["Ocena grafiki"] !== "" && game["Ocena grafiki"] !== undefined ? `${game["Ocena grafiki"]}/10` : "-";
-        const mechanika = game["Ocena mechanik"] !== "" && game["Ocena mechanik"] !== undefined ? `${game["Ocena mechanik"]}/10` : "-";
+    const groupBy = state.filters.group || "none";
 
-        const hours = game["Liczba godzin"] ? `${game["Liczba godzin"]}h` : "";
-        const date = game["Data ukończenia"] ? formatDate(game["Data ukończenia"]) : "";
-        const review = escapeHtml(game["Recenzja"] || "");
-
-        // Tagi: wykrycie Demo i wykluczenie Demo oraz Gablota z pastylek
-        const rawTags = (game["Kolekcje"] || "").split(",").map(t => t.trim()).filter(Boolean);
-        const isDemo = rawTags.some(t => t.toLowerCase() === "demo");
-        const visibleTags = rawTags.filter(t => {
-            const low = t.toLowerCase();
-            return low !== "demo" && low !== "gablota";
+    if (groupBy === "none") {
+        const shelvesRow = document.createElement("div");
+        shelvesRow.className = "shelf-group-shelves-row";
+        renderShelfUnitsForGames(filtered, shelvesRow);
+        shelvesContainer.appendChild(shelvesRow);
+    } else {
+        // Podział gier na grupy
+        const groupsMap = new Map();
+        filtered.forEach(game => {
+            const key = getGameGroupKey(game, groupBy);
+            if (!groupsMap.has(key)) {
+                groupsMap.set(key, []);
+            }
+            groupsMap.get(key).push(game);
         });
 
-        const demoBadgeHtml = isDemo ? `<span class="demo-tag-label">Demo</span>` : "";
-        const tagsHtml = visibleTags.map(t => {
-            const col = getTagColor(t);
-            return `<span class="tag-pill" style="background-color: ${col.bg}; border-color: ${col.border}; color: ${col.text};">${escapeHtml(t)}</span>`;
-        }).join("");
-
-        // Budowa informacji do stopki kafelka (bez ID)
-        const footerMetaItems = [];
-        if (date) footerMetaItems.push(`Ukończono: ${date}`);
-        if (hours) footerMetaItems.push(hours);
-        const footerMetaText = footerMetaItems.join(" • ");
-
-        let adminButtonsHtml = "";
-        if (state.isAdmin) {
-            adminButtonsHtml = `
-                <div class="card-actions">
-                    <button class="btn-card-action btn-card-edit" data-edit-id="${game.id}">Edytuj</button>
-                    <button class="btn-card-action btn-card-delete" data-delete-id="${game.id}">Usuń</button>
-                </div>
-            `;
-        }
-
-        // Plakietka oceny renderowana tylko wtedy, gdy gra posiada ocenę
-        let ratingBadgeHtml = "";
-        if (hasRating) {
-            const ratingTooltip = `Ocena gry: ${rating}\nFabuła: ${fabuła}\nGrafika: ${grafika}\nMechanika: ${mechanika}`;
-            ratingBadgeHtml = `<div class="game-rating-badge" title="${escapeHtml(ratingTooltip)}">${rating}</div>`;
-        }
-
-        card.innerHTML = `
-            <div class="game-card-content">
-                <div class="game-card-header">
-                    <h3 class="game-title">${title}${demoBadgeHtml}</h3>
-                    ${ratingBadgeHtml}
-                </div>
-                <div class="game-meta-row">
-                    <span class="badge-status">${status}</span>
-                    <span class="badge-platform">${platform}</span>
-                </div>
-                ${tagsHtml ? `<div class="game-tags">${tagsHtml}</div>` : ""}
-                ${review ? `<div class="game-review-snippet">${review.substring(0, 140)}${review.length > 140 ? "..." : ""}</div>` : ""}
-            </div>
-            <div class="game-card-footer">
-                <span>${footerMetaText}</span>
-                ${adminButtonsHtml}
-            </div>
-        `;
-
-        card.addEventListener("click", (e) => {
-            if (e.target.closest(".btn-card-action")) return;
-            openGameDetailsModal(game);
+        const sortedGroupKeys = Array.from(groupsMap.keys()).sort((a, b) => {
+            const orderA = getGroupSortOrder(a, groupBy);
+            const orderB = getGroupSortOrder(b, groupBy);
+            if (typeof orderA === "number" && typeof orderB === "number") {
+                if (orderA !== orderB) return orderA - orderB;
+                return a.localeCompare(b);
+            }
+            return String(a).localeCompare(String(b));
         });
 
-        const editBtn = card.querySelector(".btn-card-edit");
-        if (editBtn) {
-            editBtn.addEventListener("click", (e) => {
-                e.stopPropagation();
-                openGameEditModal(game);
-            });
-        }
+        sortedGroupKeys.forEach(groupKey => {
+            const gamesInGroup = groupsMap.get(groupKey);
+            if (!gamesInGroup || gamesInGroup.length === 0) return;
 
-        const deleteBtn = card.querySelector(".btn-card-delete");
-        if (deleteBtn) {
-            deleteBtn.addEventListener("click", (e) => {
-                e.stopPropagation();
-                handleDeleteGame(game.id, game["Tytuł"]);
-            });
-        }
+            const section = document.createElement("div");
+            section.className = "shelf-group-section";
 
-        gamesGrid.appendChild(card);
-    });
+            const header = document.createElement("div");
+            header.className = "shelf-group-header";
+            header.textContent = `${groupKey} (${gamesInGroup.length})`;
+            section.appendChild(header);
+
+            const shelvesRow = document.createElement("div");
+            shelvesRow.className = "shelf-group-shelves-row";
+            renderShelfUnitsForGames(gamesInGroup, shelvesRow);
+            section.appendChild(shelvesRow);
+
+            shelvesContainer.appendChild(section);
+        });
+    }
 }
+
+function getGameGroupKey(game, groupBy) {
+    if (groupBy === "status") {
+        return (game["Stan"] || "Inne").trim() || "Inne";
+    }
+    if (groupBy === "rating") {
+        const raw = game["Ocena gry"];
+        const num = parseFloat(raw);
+        if (isNaN(num) || raw === "" || raw === null || raw === undefined || raw === "-") {
+            return "Brak oceny";
+        }
+        const ceil = Math.min(Math.max(Math.ceil(num), 1), 10);
+        const lower = ceil === 1 ? 0 : ceil - 1;
+        return `Ocena: ${lower} - ${ceil}`;
+    }
+    if (groupBy === "platform") {
+        return (game["Platforma"] || "Brak platformy").trim() || "Brak platformy";
+    }
+    if (groupBy === "year") {
+        const dateStr = (game["Data ukończenia"] || "").trim();
+        if (dateStr) {
+            const match = dateStr.match(/\b(19\d\d|20\d\d)\b/);
+            if (match) return `Rok: ${match[1]}`;
+        }
+        return "Bez daty ukończenia";
+    }
+    return "Wszystkie";
+}
+
+function getGroupSortOrder(groupName, groupBy) {
+    if (groupBy === "status") {
+        const idx = STATUS_GROUP_ORDER.indexOf(groupName);
+        return idx !== -1 ? idx : 999;
+    }
+    if (groupBy === "rating") {
+        if (groupName === "Brak oceny") return 999;
+        const match = groupName.match(/(\d+)\s*-\s*(\d+)/);
+        if (match) {
+            return 100 - parseInt(match[2], 10);
+        }
+        return 998;
+    }
+    if (groupBy === "year") {
+        if (groupName === "Bez daty ukończenia") return 9999;
+        const match = groupName.match(/\b(\d{4})\b/);
+        if (match) {
+            return 9999 - parseInt(match[1], 10);
+        }
+        return 9998;
+    }
+    return groupName;
+}
+
+function renderShelfUnitsForGames(gamesList, container) {
+    const SHELF_CAPACITY = 8;
+    for (let i = 0; i < gamesList.length; i += SHELF_CAPACITY) {
+        const shelfChunk = gamesList.slice(i, i + SHELF_CAPACITY);
+
+        const shelfUnit = document.createElement("div");
+        shelfUnit.className = "game-shelf-unit";
+
+        // GÓRNY POZIOM: 3 poziome po lewej (stos) + 1 pionowa pochylona o 30 stopni po prawej
+        const topTier = document.createElement("div");
+        topTier.className = "shelf-tier tier-top";
+
+        const topLeftStack = document.createElement("div");
+        topLeftStack.className = "shelf-stack stack-left";
+        for (let idx = 0; idx < 3; idx++) {
+            const game = shelfChunk[idx];
+            if (game) {
+                topLeftStack.appendChild(createSpineElement(game, "horizontal"));
+            }
+        }
+        topTier.appendChild(topLeftStack);
+
+        const topRightSlot = document.createElement("div");
+        topRightSlot.className = "shelf-lean-slot";
+        const topLeanGame = shelfChunk[3];
+        if (topLeanGame) {
+            topRightSlot.appendChild(createSpineElement(topLeanGame, "vertical", "leaned-right"));
+        }
+        topTier.appendChild(topRightSlot);
+
+        shelfUnit.appendChild(topTier);
+
+        // DOLNY POZIOM: 1 pionowa po lewej + 3 poziome po prawej (stos)
+        const bottomTier = document.createElement("div");
+        bottomTier.className = "shelf-tier tier-bottom";
+
+        const bottomLeftSlot = document.createElement("div");
+        bottomLeftSlot.className = "shelf-vertical-slot";
+        const bottomStandGame = shelfChunk[4];
+        if (bottomStandGame) {
+            bottomLeftSlot.appendChild(createSpineElement(bottomStandGame, "vertical", "upright"));
+        }
+        bottomTier.appendChild(bottomLeftSlot);
+
+        const bottomRightStack = document.createElement("div");
+        bottomRightStack.className = "shelf-stack stack-right";
+        for (let idx = 5; idx < 8; idx++) {
+            const game = shelfChunk[idx];
+            if (game) {
+                bottomRightStack.appendChild(createSpineElement(game, "horizontal"));
+            }
+        }
+        bottomTier.appendChild(bottomRightStack);
+
+        shelfUnit.appendChild(bottomTier);
+
+        container.appendChild(shelfUnit);
+    }
+}
+
+function toPastelSpineColor(hex) {
+    if (!hex) return "#2f3e52";
+    let clean = hex.trim();
+    if (!clean.startsWith("#")) return clean;
+    
+    // Obsługa #RGB oraz #RRGGBB
+    if (clean.length === 4) {
+        clean = "#" + clean[1] + clean[1] + clean[2] + clean[2] + clean[3] + clean[3];
+    }
+    if (clean.length !== 7) return clean;
+
+    const r = parseInt(clean.substring(1, 3), 16) / 255;
+    const g = parseInt(clean.substring(3, 5), 16) / 255;
+    const b = parseInt(clean.substring(5, 7), 16) / 255;
+
+    if (isNaN(r) || isNaN(g) || isNaN(b)) return clean;
+
+    const max = Math.max(r, g, b), min = Math.min(r, g, b);
+    let h, s;
+    const d = max - min;
+
+    if (d === 0) {
+        h = 0;
+        s = 0;
+    } else {
+        s = d / (1 - Math.abs(max + min - 1));
+        switch (max) {
+            case r: h = ((g - b) / d + (g < b ? 6 : 0)) / 6; break;
+            case g: h = ((b - r) / d + 2) / 6; break;
+            case b: h = ((r - g) / d + 4) / 6; break;
+        }
+    }
+
+    const hueDeg = Math.round(h * 360);
+    // Stonowane pastelowe nasycenie (32-45%) i elegancka ciemniejsza jasność (30%) dla idealnej czytelności białego napisu
+    const pastelSat = s === 0 ? 0 : Math.min(Math.max(Math.round(s * 100 * 0.6), 30), 45);
+    const pastelLight = 30;
+
+    return `hsl(${hueDeg}, ${pastelSat}%, ${pastelLight}%)`;
+}
+
+function showMcTooltip(title, status, x, y) {
+    const tooltip = document.getElementById("mcItemTooltip");
+    if (!tooltip) return;
+
+    tooltip.innerHTML = `
+        <div class="mc-tooltip-title">${escapeHtml(title)}</div>
+        <div class="mc-tooltip-status">${escapeHtml(status)}</div>
+    `;
+    tooltip.style.display = "flex";
+    updateMcTooltipPosition(x, y);
+}
+
+function updateMcTooltipPosition(x, y) {
+    const tooltip = document.getElementById("mcItemTooltip");
+    if (!tooltip || tooltip.style.display === "none") return;
+
+    const tipRect = tooltip.getBoundingClientRect();
+    const tipWidth = tipRect.width || 240;
+    const tipHeight = tipRect.height || 56;
+
+    let posX = x + 14;
+    let posY = y - 20;
+
+    if (posX + tipWidth > window.innerWidth - 8) {
+        posX = x - tipWidth - 14;
+    }
+    if (posX < 8) posX = 8;
+
+    if (posY + tipHeight > window.innerHeight - 8) {
+        posY = window.innerHeight - tipHeight - 8;
+    }
+    if (posY < 8) posY = 8;
+
+    tooltip.style.left = `${posX}px`;
+    tooltip.style.top = `${posY}px`;
+}
+
+function hideMcTooltip() {
+    const tooltip = document.getElementById("mcItemTooltip");
+    if (tooltip) tooltip.style.display = "none";
+}
+
+const DEFAULT_STATUS_COLORS = {
+    "gram teraz": "#3A1A1D",
+    "chcę zagrać": "#1CD7C4",
+    "chce zagrac": "#1CD7C4",
+    "singleplayer": "#C48797",
+    "multiplayer": "#196225",
+    "wstrzymana": "#4E09F7",
+    "pozostawiona": "#59FFC6",
+    "ukończona": "#C91D2E",
+    "ukonczona": "#C91D2E",
+    "ukończona+": "#C7EDA8",
+    "ukonczona+": "#C7EDA8",
+    "100'%": "#398E62",
+    "100%": "#398E62",
+    "platyna": "#7CA055"
+};
+
+function getSpineColorForGame(game) {
+    if (!game) return "#2f3e52";
+    const status = (game["Stan"] || "").toString().trim().toLowerCase();
+
+    // 1. Sprawdzenie w aktualnie załadowanych ustawieniach ze słownika Stanów
+    if (status && state.settings && state.settings.stan && Array.isArray(state.settings.stan.rows)) {
+        const matchingRow = state.settings.stan.rows.find(r => {
+            const rowStan = (r["Stan"] || r["stan"] || "").toString().trim().toLowerCase();
+            return rowStan === status;
+        });
+        if (matchingRow) {
+            const rawCol = matchingRow["Kolor"] || matchingRow["kolor"] || matchingRow["Color"];
+            if (rawCol && rawCol.toString().trim()) {
+                return rawCol.toString().trim();
+            }
+        }
+    }
+
+    // 2. Wbudowana mapa domyślnych kolorów dla podstawowych stanów
+    if (status && DEFAULT_STATUS_COLORS[status]) {
+        return DEFAULT_STATUS_COLORS[status];
+    }
+
+    // 3. Kolor motywu użytkownika
+    return state.currentUser ? state.currentUser.color : "#2a4365";
+}
+
+function createSpineElement(game, orientation = "vertical", variant = "") {
+    const spine = document.createElement("div");
+    spine.className = `game-spine spine-${orientation}`;
+    if (variant) {
+        spine.classList.add(`spine-${variant}`);
+    }
+    spine.setAttribute("data-game-id", game.id);
+
+    const isCurrentActive = state.selectedGame && String(state.selectedGame.id) === String(game.id);
+    if (isCurrentActive) {
+        spine.classList.add("active");
+    }
+
+    // Kolor grzbietu pobierany ze Stanu gry (zgodnie z konfiguracją w arkuszu)
+    const baseColor = getSpineColorForGame(game);
+    const spineColor = toPastelSpineColor(baseColor);
+    spine.style.backgroundColor = spineColor;
+
+    const fullTitle = game["Tytuł"] || "Brak tytułu";
+    const status = game["Stan"] || "-";
+    const maxChars = orientation === "horizontal" ? 18 : (variant === "leaned-right" ? 16 : 20);
+    const displayTitle = formatSpineTitle(fullTitle, maxChars);
+
+    const textClass = orientation === "horizontal" ? "game-spine-text-horiz" : "game-spine-text";
+    spine.innerHTML = `
+        <span class="${textClass}">${escapeHtml(displayTitle)}</span>
+    `;
+
+    // Interaktywny tooltip w stylu Minecraft podążający za kursorem myszy
+    spine.addEventListener("mouseenter", (e) => {
+        showMcTooltip(fullTitle, status, e.clientX, e.clientY);
+    });
+
+    spine.addEventListener("mousemove", (e) => {
+        updateMcTooltipPosition(e.clientX, e.clientY);
+    });
+
+    spine.addEventListener("mouseleave", () => {
+        hideMcTooltip();
+    });
+
+    spine.addEventListener("click", (e) => {
+        e.stopPropagation();
+        selectGameForMonitor(game, spine);
+    });
+
+    return spine;
+}
+
+// Alias dla wstecznej kompatybilności
+const renderGamesGrid = renderGamesShelves;
 
 // ===================================================
 // FILTRY WIELOKROTNEGO WYBORU (CHECKLISTY)
@@ -2262,7 +2998,7 @@ function updateFilterLabel(labelId, prefix, selectedSet) {
 }
 
 function updateMobileFiltersBadge() {
-    const badge = document.getElementById("mobileFiltersBadge");
+    const badge = document.getElementById("filtersBadge") || document.getElementById("mobileFiltersBadge");
     if (!badge) return;
     const total = state.filters.statuses.size + state.filters.platforms.size + state.filters.collections.size;
     if (total > 0) {
@@ -2279,10 +3015,13 @@ function resetFilters() {
     state.filters.platforms.clear();
     state.filters.collections.clear();
     state.filters.sort = "updated_desc";
+    state.filters.group = "none";
 
     document.getElementById("searchInput").value = "";
     document.getElementById("btnClearSearch").style.display = "none";
     document.getElementById("sortSelect").value = "updated_desc";
+    const groupSelectEl = document.getElementById("groupSelect");
+    if (groupSelectEl) groupSelectEl.value = "none";
 
     closeAllFilterDropdowns();
     populateFilterOptions();
@@ -2290,81 +3029,29 @@ function resetFilters() {
     renderGamesGrid();
 }
 
-// ===================================================
-// MODAL: SZCZEGÓŁY GRY (ZWIĘZŁY)
-// ===================================================
+function checkAdminStatusForUser(user) {
+    try {
+        const userSheet = user ? user.sheetName : (state.currentUser ? state.currentUser.sheetName : "Baza gier MM");
+        const authMap = JSON.parse(localStorage.getItem("nkmm_auth_map") || "{}");
+        const masterPass = localStorage.getItem(CACHE_KEYS.ADMIN_AUTH);
 
-function openGameDetailsModal(game) {
-    document.getElementById("modalGameTitle").textContent = game["Tytuł"] || "Szczegóły gry";
-    const body = document.getElementById("modalGameBody");
-
-    const fabuła = game["Ocena fabuły"] !== "" && game["Ocena fabuły"] !== undefined ? game["Ocena fabuły"] : "-";
-    const grafika = game["Ocena grafiki"] !== "" && game["Ocena grafiki"] !== undefined ? game["Ocena grafiki"] : "-";
-    const mechaniki = game["Ocena mechanik"] !== "" && game["Ocena mechanik"] !== undefined ? game["Ocena mechanik"] : "-";
-    const ocenaOgólna = game["Ocena gry"] !== "" && game["Ocena gry"] !== undefined ? game["Ocena gry"] : "-";
-    const updatedTime = game["Aktualizacja"] || game["Akualizacja"] || game["Data modyfikacji"] || "";
-
-    body.innerHTML = `
-        <div style="margin-bottom: 14px;">
-            <div style="font-size: 15px; margin-bottom: 6px; display: flex; flex-wrap: wrap; gap: 8px;">
-                <span><strong>Stan:</strong> ${escapeHtml(game["Stan"] || "-")}</span>
-                <span>•</span>
-                <span><strong>Platforma:</strong> ${escapeHtml(game["Platforma"] || "-")}</span>
-                ${game["Liczba godzin"] ? `<span>•</span><span><strong>Czas:</strong> ${game["Liczba godzin"]}h</span>` : ""}
-            </div>
-            ${game["Data ukończenia"] ? `
-                <div style="font-size: 14px; color: var(--color-text-muted); margin-bottom: 6px;">
-                    <strong>Data ukończenia:</strong> ${formatDate(game["Data ukończenia"])}
-                </div>
-            ` : ""}
-            ${game["Kolekcje"] ? `
-                <div style="font-size: 14px; color: var(--color-text-muted); margin-bottom: 6px;">
-                    <strong>Kolekcje / Tagi:</strong> ${escapeHtml(game["Kolekcje"])}
-                </div>
-            ` : ""}
-            ${updatedTime ? `
-                <div style="font-size: 13px; color: var(--color-text-muted); margin-bottom: 10px;">
-                    <strong>Ostatnia aktualizacja:</strong> ${escapeHtml(String(updatedTime))}
-                </div>
-            ` : ""}
-        </div>
-
-        <div style="background: var(--color-bg); padding: 14px; border-radius: var(--radius-sm); border: 1px solid var(--color-border); margin-bottom: 14px;">
-            <h4 style="margin-bottom: 10px; font-size: 15px; color: var(--color-text-main);">Zestawienie ocen (0-10):</h4>
-            <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; text-align: center;">
-                <div style="background: var(--color-surface); padding: 8px; border: 1px solid var(--color-border); border-radius: 4px;">
-                    <div style="font-size: 14px; color: var(--color-text-muted);">Fabuła</div>
-                    <div style="font-weight: bold; font-size: 18px; margin-top: 4px;">${fabuła}</div>
-                </div>
-                <div style="background: var(--color-surface); padding: 8px; border: 1px solid var(--color-border); border-radius: 4px;">
-                    <div style="font-size: 14px; color: var(--color-text-muted);">Grafika</div>
-                    <div style="font-weight: bold; font-size: 18px; margin-top: 4px;">${grafika}</div>
-                </div>
-                <div style="background: var(--color-surface); padding: 8px; border: 1px solid var(--color-border); border-radius: 4px;">
-                    <div style="font-size: 14px; color: var(--color-text-muted);">Mechanika</div>
-                    <div style="font-weight: bold; font-size: 18px; margin-top: 4px;">${mechaniki}</div>
-                </div>
-                <div style="background: var(--color-surface); padding: 8px; border: 1px solid var(--color-primary); border-radius: 4px;">
-                    <div style="font-size: 14px; color: var(--color-text-main);">Ocena Gry</div>
-                    <div style="font-weight: bold; font-size: 18px; margin-top: 4px; color: var(--color-text-main);">${ocenaOgólna}</div>
-                </div>
-            </div>
-        </div>
-
-        ${game["Recenzja"] ? `
-            <div>
-                <h4 style="margin-bottom: 6px; font-size: 15px; color: var(--color-text-main);">Recenzja / Notatka:</h4>
-                <div style="white-space: pre-wrap; background: var(--color-bg); padding: 14px; border: 1px solid var(--color-border); border-radius: 4px; font-size: 14px; line-height: 1.5; color: #edf2f7;">${escapeHtml(game["Recenzja"])}</div>
-            </div>
-        ` : ""}
-    `;
-
-    openModal("gameDetailsModal");
+        if (authMap[userSheet]) {
+            state.isAdmin = true;
+            state.adminPassword = authMap[userSheet];
+        } else if (masterPass === "stopki") {
+            // Hasło głównej bazy MM ("stopki") ma uprawnienia nadrzędne do wszystkich baz
+            state.isAdmin = true;
+            state.adminPassword = masterPass;
+        } else {
+            state.isAdmin = false;
+            state.adminPassword = "";
+        }
+    } catch (e) {
+        state.isAdmin = false;
+        state.adminPassword = "";
+    }
+    applyAdminUiState();
 }
-
-// ===================================================
-// ADMINISTRACJA I LOGOWANIE (ŚCISŁA WERYFIKACJA)
-// ===================================================
 
 async function handleAdminLogin(e) {
     e.preventDefault();
@@ -2377,9 +3064,10 @@ async function handleAdminLogin(e) {
     submitBtn.textContent = "Weryfikacja...";
 
     const enteredPass = passInput.value.trim();
+    const currentSheet = state.currentUser ? state.currentUser.sheetName : "Baza gier MM";
 
     try {
-        const response = await sendApiRequest({ action: "verifyAuth" }, enteredPass);
+        const response = await sendApiRequest({ action: "verifyAuth", user: currentSheet }, enteredPass);
 
         const isAuthorized = response.status === "success" || 
             (response.status === "error" && response.message && !response.message.includes("Brak autoryzacji") && response.message.includes("Nieznana akcja"));
@@ -2388,7 +3076,13 @@ async function handleAdminLogin(e) {
             state.isAdmin = true;
             state.adminPassword = enteredPass;
             try {
-                localStorage.setItem(CACHE_KEYS.ADMIN_AUTH, enteredPass);
+                const authMap = JSON.parse(localStorage.getItem("nkmm_auth_map") || "{}");
+                authMap[currentSheet] = enteredPass;
+                localStorage.setItem("nkmm_auth_map", JSON.stringify(authMap));
+
+                if (enteredPass === "stopki") {
+                    localStorage.setItem(CACHE_KEYS.ADMIN_AUTH, enteredPass);
+                }
             } catch (e) {}
 
             closeModal("adminLoginModal");
@@ -2397,11 +3091,11 @@ async function handleAdminLogin(e) {
             renderGamesGrid();
             updateProfileBanner();
         } else {
-            errorDiv.textContent = "Błędne hasło dostępu!";
+            errorDiv.textContent = "Błędne hasło dostępu dla wybranej bazy!";
             errorDiv.style.display = "block";
         }
     } catch (err) {
-        errorDiv.textContent = "Błędne hasło dostępu!";
+        errorDiv.textContent = "Błędne hasło dostępu dla wybranej bazy!";
         errorDiv.style.display = "block";
     } finally {
         submitBtn.disabled = false;
@@ -2413,6 +3107,10 @@ function handleAdminLogout() {
     state.isAdmin = false;
     state.adminPassword = "";
     try {
+        const currentSheet = state.currentUser ? state.currentUser.sheetName : "Baza gier MM";
+        const authMap = JSON.parse(localStorage.getItem("nkmm_auth_map") || "{}");
+        delete authMap[currentSheet];
+        localStorage.setItem("nkmm_auth_map", JSON.stringify(authMap));
         localStorage.removeItem(CACHE_KEYS.ADMIN_AUTH);
     } catch (e) {}
     applyAdminUiState();
@@ -2424,7 +3122,6 @@ function applyAdminUiState() {
     const syncStatusWrapper = document.getElementById("syncStatusWrapper");
     const mobileSyncWrapper = document.getElementById("mobileSyncWrapper");
     const btnAdminLogin = document.getElementById("btnAdminLoginModal");
-    const adminActionsBar = document.getElementById("adminActionsBar");
     const btnEditShowcase = document.getElementById("btnEditShowcase");
     const adminOnlyBlocks = document.querySelectorAll(".admin-only-block");
     const mobileAdminLabel = document.getElementById("mobileAdminLabel");
@@ -2433,24 +3130,26 @@ function applyAdminUiState() {
         if (syncStatusWrapper) syncStatusWrapper.style.display = "flex";
         if (mobileSyncWrapper) mobileSyncWrapper.style.display = "flex";
         if (btnAdminLogin) btnAdminLogin.style.display = "none";
-        if (adminActionsBar) adminActionsBar.style.display = "flex";
         if (btnEditShowcase) btnEditShowcase.style.display = "inline-block";
         if (mobileAdminLabel) mobileAdminLabel.textContent = "Wyloguj administratora";
-        adminOnlyBlocks.forEach(el => el.style.display = "flex");
+        adminOnlyBlocks.forEach(el => {
+            if (el.classList.contains("drawer-menu-item")) {
+                el.style.display = "flex";
+            } else if (el.classList.contains("action-btn") || el.tagName === "BUTTON") {
+                el.style.display = "inline-block";
+            } else {
+                el.style.display = "flex";
+            }
+        });
     } else {
         if (syncStatusWrapper) syncStatusWrapper.style.display = "none";
         if (mobileSyncWrapper) mobileSyncWrapper.style.display = "none";
         if (btnAdminLogin) btnAdminLogin.style.display = "inline-block";
-        if (adminActionsBar) adminActionsBar.style.display = "none";
         if (btnEditShowcase) btnEditShowcase.style.display = "none";
-        if (mobileAdminLabel) mobileAdminLabel.textContent = "Dostęp administratora";
+        if (mobileAdminLabel) mobileAdminLabel.textContent = "Zaloguj administratora";
         adminOnlyBlocks.forEach(el => el.style.display = "none");
     }
 }
-
-// ===================================================
-// DODAWANIE / EDYCJA GRY (OPTIMISTIC UI + UNCHOSEN DIRTY PROTECTION)
-// ===================================================
 
 function getGameFormSnapshot() {
     return {
@@ -2463,6 +3162,7 @@ function getGameFormSnapshot() {
         ratingOgólna: (document.getElementById("formRatingOgólna").value || "").trim(),
         hours: (document.getElementById("formHours").value || "").trim(),
         completionDate: (document.getElementById("formCompletionDate").value || "").trim(),
+        image: (document.getElementById("formGameImage") ? document.getElementById("formGameImage").value : "").trim(),
         collections: (document.getElementById("formCollections").value || "").trim(),
         review: (document.getElementById("formReview").value || "").trim()
     };
@@ -2490,35 +3190,83 @@ function openGameEditModal(game = null) {
     form.reset();
     document.getElementById("gameEditError").style.display = "none";
 
+    const imageInput = document.getElementById("formGameImage");
+    const previewBox = document.getElementById("formCoverPreviewBox");
+    const previewImg = document.getElementById("formCoverPreviewImg");
+
+    populateSelectOptionsForForm();
+
     if (game) {
-        document.getElementById("gameEditModalTitle").textContent = "Edycja gry";
+        document.getElementById("gameEditModalTitle").textContent = "Edytuj grę";
         document.getElementById("formGameId").value = game.id || "";
         document.getElementById("formGameTitle").value = game["Tytuł"] || "";
+        document.getElementById("formGameStatus").value = game["Stan"] || "";
+        document.getElementById("formGamePlatform").value = game["Platforma"] || "";
         document.getElementById("formRatingFabuła").value = game["Ocena fabuły"] !== undefined ? game["Ocena fabuły"] : "";
         document.getElementById("formRatingGrafika").value = game["Ocena grafiki"] !== undefined ? game["Ocena grafiki"] : "";
         document.getElementById("formRatingMechanika").value = game["Ocena mechanik"] !== undefined ? game["Ocena mechanik"] : "";
         document.getElementById("formRatingOgólna").value = game["Ocena gry"] !== undefined ? game["Ocena gry"] : "";
         document.getElementById("formHours").value = game["Liczba godzin"] !== undefined ? game["Liczba godzin"] : "";
         document.getElementById("formCompletionDate").value = game["Data ukończenia"] || "";
+
+        const rawImage = (game["Obraz"] || game["obraz"] || "").trim();
+        if (imageInput) imageInput.value = rawImage;
+        if (previewBox && previewImg) {
+            if (rawImage) {
+                previewImg.src = rawImage;
+                previewBox.style.display = "block";
+            } else {
+                previewImg.src = "";
+                previewBox.style.display = "none";
+            }
+        }
+
         document.getElementById("formCollections").value = game["Kolekcje"] || "";
         document.getElementById("formReview").value = game["Recenzja"] || "";
     } else {
         document.getElementById("gameEditModalTitle").textContent = "Dodaj nową grę";
         document.getElementById("formGameId").value = "";
+        if (imageInput) imageInput.value = "";
+        if (previewBox && previewImg) {
+            previewImg.src = "";
+            previewBox.style.display = "none";
+        }
         document.getElementById("formCollections").value = "";
     }
 
-    populateSelectOptionsForForm();
-
-    if (game) {
-        document.getElementById("formGameStatus").value = game["Stan"] || "";
-        document.getElementById("formGamePlatform").value = game["Platforma"] || "";
-    }
+    // Aktualizacja podglądu pastelowego grzbietu na podstawie stanu gry
+    updateFormColorPreview(game ? (game["Tytuł"] || "") : "");
 
     // Zapisanie migawki początkowego stanu formularza do wykrywania niezapisanych zmian
     state.formInitialSnapshot = getGameFormSnapshot();
 
     openModal("gameEditModal");
+}
+
+function updateFormColorPreview(title = null) {
+    const statusSelect = document.getElementById("formGameStatus");
+    const sampleBox = document.getElementById("formColorPastelSample");
+    const sampleText = document.getElementById("formColorPastelText");
+    const titleInput = document.getElementById("formGameTitle");
+
+    if (!sampleBox) return;
+
+    const selectedStatus = statusSelect ? statusSelect.value : "";
+    let baseColor = state.currentUser ? state.currentUser.color : "#2a4365";
+
+    if (selectedStatus && state.settings && state.settings.stan && Array.isArray(state.settings.stan.rows)) {
+        const matchingRow = state.settings.stan.rows.find(r => (r["Stan"] || "").trim().toLowerCase() === selectedStatus.toLowerCase());
+        if (matchingRow && matchingRow["Kolor"] && matchingRow["Kolor"].trim()) {
+            baseColor = matchingRow["Kolor"].trim();
+        }
+    }
+
+    const pastelColor = toPastelSpineColor(baseColor);
+    sampleBox.style.backgroundColor = pastelColor;
+
+    let displayTitle = title !== null ? title : (titleInput ? titleInput.value.trim() : "");
+    if (!displayTitle) displayTitle = "Tytuł gry";
+    if (sampleText) sampleText.textContent = displayTitle;
 }
 
 function populateSelectOptionsForForm() {
@@ -2664,8 +3412,24 @@ function handleGameFormSubmit(e) {
     const isEdit = !!gameId;
     const title = document.getElementById("formGameTitle").value.trim();
 
+    // Wyznaczenie kolejnego ID liczbowego dla nowej gry (1, 2, 3...)
+    let assignedId = gameId;
+    if (!isEdit) {
+        let maxExistingId = 0;
+        if (state.games && state.games.length > 0) {
+            maxExistingId = state.games.reduce((max, g) => {
+                const parsed = parseInt(g.id, 10);
+                return !isNaN(parsed) && parsed > max ? parsed : max;
+            }, 0);
+        }
+        assignedId = maxExistingId + 1;
+    }
+
+    const colorVal = (document.getElementById("formGameColor").value || "").trim();
+    const imageVal = (document.getElementById("formGameImage") ? document.getElementById("formGameImage").value : "").trim();
+
     const gameDetails = {
-        "id": isEdit ? gameId : "ID_TEMP_" + Date.now(),
+        "id": assignedId,
         "Tytuł": title,
         "Stan": document.getElementById("formGameStatus").value,
         "Platforma": document.getElementById("formGamePlatform").value,
@@ -2675,6 +3439,9 @@ function handleGameFormSubmit(e) {
         "Ocena gry": parseNum(document.getElementById("formRatingOgólna").value),
         "Liczba godzin": parseNum(document.getElementById("formHours").value),
         "Data ukończenia": document.getElementById("formCompletionDate").value,
+        "Kolor": colorVal,
+        "Obraz": imageVal,
+        "autoFetchCover": !imageVal,
         "Kolekcje": document.getElementById("formCollections").value.trim(),
         "Recenzja": document.getElementById("formReview").value.trim(),
         "Aktualizacja": getCurrentDateTimeString()
@@ -2713,9 +3480,14 @@ function handleGameFormSubmit(e) {
 
             if (res.status === "success") {
                 invalidateSettingsCache();
-                if (!isEdit && res.data && res.data.id) {
-                    const tempGame = state.games.find(g => g.id === gameDetails.id);
-                    if (tempGame) tempGame.id = res.data.id;
+                const targetGame = state.games.find(g => String(g.id) === String(gameDetails.id));
+                if (targetGame) {
+                    if (!isEdit && res.data && res.data.id) {
+                        targetGame.id = res.data.id;
+                    }
+                    if (res.data && res.data.coverUrl) {
+                        targetGame["Obraz"] = res.data.coverUrl;
+                    }
                     setCachedGames(currentSheet, state.games);
                     renderGamesGrid();
                     updateProfileBanner();
@@ -2731,6 +3503,89 @@ function handleGameFormSubmit(e) {
         },
         apiParams
     );
+}
+
+async function handleSyncMissingCovers() {
+    if (!state.currentUser || !state.isAdmin) return;
+    const currentSheet = state.currentUser.sheetName;
+
+    // Filtrujemy gry, które rzeczywiście nie mają okładki
+    const gamesWithoutCover = state.games.filter(g => {
+        const img = (g["Obraz"] || g["obraz"] || "").trim();
+        return !img || img === "-" || img === "brak" || img === "null" || img === "undefined";
+    });
+
+    if (gamesWithoutCover.length === 0) {
+        alert(`Wszystkie gry (${state.games.length}) w Twojej bazie posiadają już przypisane okładki.`);
+        return;
+    }
+
+    if (!confirm(`Znaleziono ${gamesWithoutCover.length} gier bez okładki. Czy chcesz pobrać dla nich grafiki z RAWG Video Games?`)) {
+        return;
+    }
+
+    const btn = document.getElementById("btnSyncCovers");
+    if (btn) {
+        btn.disabled = true;
+        btn.textContent = `Pobieranie okładek: 0/${gamesWithoutCover.length}...`;
+    }
+
+    let successCount = 0;
+    const nowTime = getCurrentDateTimeString();
+
+    for (let i = 0; i < gamesWithoutCover.length; i++) {
+        const game = gamesWithoutCover[i];
+        const title = (game["Tytuł"] || "").trim();
+
+        if (btn) {
+            btn.textContent = `Pobieranie: ${i + 1}/${gamesWithoutCover.length} (${escapeHtml(title.substring(0, 15))}...)`;
+        }
+
+        try {
+            const coverUrl = await fetchRawgCoverDirect(title);
+            if (coverUrl) {
+                game["Obraz"] = coverUrl;
+                game["Aktualizacja"] = nowTime;
+                successCount++;
+
+                // Zlecenie zapisu do arkusza w kolejce w tle
+                const gameDetails = { ...game, "Obraz": coverUrl, "Aktualizacja": nowTime };
+                const apiParams = {
+                    action: "editGame",
+                    user: currentSheet,
+                    gameId: game.id,
+                    gameDetails: JSON.stringify(gameDetails)
+                };
+
+                enqueueSyncTask(
+                    `Pobrano okładkę: ${title}`,
+                    async () => {
+                        return await sendApiRequest(apiParams);
+                    },
+                    null,
+                    apiParams
+                );
+            }
+        } catch (err) {
+            console.warn("Błąd pobierania okładki dla:", title, err);
+        }
+
+        // Mały odstęp dla API
+        await new Promise(r => setTimeout(r, 120));
+    }
+
+    setCachedGames(currentSheet, state.games);
+    renderGamesGrid();
+    if (state.selectedGame) {
+        renderMonitorGameDetails(state.selectedGame);
+    }
+
+    if (btn) {
+        btn.disabled = false;
+        btn.textContent = "[RAWG] Pobierz brakujące okładki";
+    }
+
+    alert(`Zakończono pobieranie okładek!\nPomyślnie dopasowano okładki dla ${successCount} z ${gamesWithoutCover.length} gier. Zmiany są przesyłane do arkusza w tle.`);
 }
 
 function handleDeleteGame(gameId, title) {
@@ -2859,6 +3714,10 @@ async function fetchSettingsAndStats(forceRefresh = false) {
                 sessionStorage.setItem(CACHE_KEYS.SETTINGS, JSON.stringify(response.data));
             } catch (e) {}
             renderStatsTables();
+            if (state.games && state.games.length > 0) {
+                renderGamesShelves();
+                renderProfileShowcase();
+            }
         }
     } catch (e) {
         console.warn("Nie udało się odświeżyć statystyk.");
@@ -2919,7 +3778,7 @@ function renderTable(containerId, tableData, category = null) {
         return;
     }
 
-    // Filtrujemy nagłówki - w Ustawieniach wyświetlamy TYLKO kolumny konfiguracyjne (Lp, Nazwa, Opis), ukrywając kolumny statystyczne graczy
+    // Filtrujemy nagłówki - w Ustawieniach wyświetlamy TYLKO kolumny konfiguracyjne (Lp, Nazwa, Kolor, Opis), ukrywając kolumny statystyczne graczy
     let displayedHeaders = tableData.headers;
     if (category) {
         displayedHeaders = tableData.headers.filter(h => {
@@ -2946,12 +3805,26 @@ function renderTable(containerId, tableData, category = null) {
         html += "<tr>";
         displayedHeaders.forEach(h => {
             const val = row[h] !== undefined && row[h] !== null ? row[h] : "";
-            html += `<td>${escapeHtml(String(val))}</td>`;
+            if (h === "Kolor" && val) {
+                const hexVal = String(val).trim();
+                const pastel = toPastelSpineColor(hexVal);
+                html += `
+                    <td>
+                        <div style="display:flex; align-items:center; gap:6px;">
+                            <span style="display:inline-block; width:16px; height:16px; border-radius:3px; background-color:${pastel}; border:1px solid rgba(255,255,255,0.25); box-shadow:0 1px 3px rgba(0,0,0,0.5);"></span>
+                            <span style="font-family:monospace; font-size:12px;">${escapeHtml(hexVal)}</span>
+                        </div>
+                    </td>
+                `;
+            } else {
+                html += `<td>${escapeHtml(String(val))}</td>`;
+            }
         });
 
         if (state.isAdmin && category) {
             const primaryVal = row[category] || "";
             const descVal = descColName ? (row[descColName] || "") : "";
+            const colorVal = row["Kolor"] || "";
             html += `
                 <td style="text-align: center; width: 36px; position: relative;">
                     <div class="table-menu-container">
@@ -2959,7 +3832,7 @@ function renderTable(containerId, tableData, category = null) {
                             <span>&#8942;</span>
                         </button>
                         <div class="table-menu-dropdown">
-                            <button type="button" class="table-menu-item btn-setting-edit" data-category="${escapeHtml(category)}" data-val="${escapeHtml(primaryVal)}" data-desc="${escapeHtml(descVal)}">Edytuj</button>
+                            <button type="button" class="table-menu-item btn-setting-edit" data-category="${escapeHtml(category)}" data-val="${escapeHtml(primaryVal)}" data-desc="${escapeHtml(descVal)}" data-color="${escapeHtml(colorVal)}">Edytuj</button>
                             <button type="button" class="table-menu-item table-menu-item-danger btn-setting-delete" data-category="${escapeHtml(category)}" data-val="${escapeHtml(primaryVal)}">Usuń</button>
                         </div>
                     </div>
@@ -2973,7 +3846,7 @@ function renderTable(containerId, tableData, category = null) {
     container.innerHTML = html;
 }
 
-window.openEditSettingModal = function(category, value, description) {
+window.openEditSettingModal = function(category, value, description, color = "") {
     if (!state.isAdmin) return;
     document.getElementById("editSettingCategory").value = category;
     document.getElementById("editSettingOldValue").value = value;
@@ -2991,6 +3864,19 @@ window.openEditSettingModal = function(category, value, description) {
         descInput.value = description || "";
     }
 
+    const colorGroup = document.getElementById("editSettingColorGroup");
+    const colorInput = document.getElementById("editSettingNewColor");
+    const colorPicker = document.getElementById("editSettingNewColorPicker");
+    if (category === "Stan") {
+        if (colorGroup) colorGroup.style.display = "block";
+        const cleanColor = (color || "").trim();
+        if (colorInput) colorInput.value = cleanColor;
+        if (colorPicker) colorPicker.value = /^#[0-9A-Fa-f]{6}$/.test(cleanColor) ? cleanColor : "#2a4365";
+    } else {
+        if (colorGroup) colorGroup.style.display = "none";
+        if (colorInput) colorInput.value = "";
+    }
+
     openModal("editSettingModal");
 };
 
@@ -3002,6 +3888,8 @@ function handleSaveEditSetting(e) {
     const oldValue = document.getElementById("editSettingOldValue").value;
     const newValue = document.getElementById("editSettingNewValue").value.trim();
     const newDesc = document.getElementById("editSettingNewDesc").value.trim();
+    const newColorInput = document.getElementById("editSettingNewColor");
+    const newColor = newColorInput ? newColorInput.value.trim() : "";
 
     if (!newValue) {
         alert("Wartość nie może być pusta.");
@@ -3023,6 +3911,9 @@ function handleSaveEditSetting(e) {
                 if (descColName) {
                     r[descColName] = newDesc;
                 }
+                if (category === "Stan") {
+                    r["Kolor"] = newColor;
+                }
             }
         });
         renderStatsTables();
@@ -3037,6 +3928,7 @@ function handleSaveEditSetting(e) {
             }
         });
         renderGamesGrid();
+        renderProfileShowcase();
     }
 
     const apiParams = {
@@ -3044,7 +3936,8 @@ function handleSaveEditSetting(e) {
         category: category,
         oldValue: oldValue,
         newValue: newValue,
-        newDescription: newDesc
+        newDescription: newDesc,
+        newColor: newColor
     };
 
     enqueueSyncTask(
@@ -3054,6 +3947,8 @@ function handleSaveEditSetting(e) {
             if (res.status === "success") {
                 invalidateSettingsCache();
                 await fetchSettingsAndStats(true);
+                renderGamesGrid();
+                renderProfileShowcase();
             }
             return res;
         },
@@ -3063,6 +3958,8 @@ function handleSaveEditSetting(e) {
                 catData.rows = previousRows;
                 renderStatsTables();
                 populateFilterOptions();
+                renderGamesGrid();
+                renderProfileShowcase();
             }
         },
         apiParams
@@ -3076,14 +3973,16 @@ function getSettingsCategoryData(category) {
     return null;
 }
 
-function handleAddSetting(category, inputValId, inputDescId = null) {
+function handleAddSetting(category, inputValId, inputDescId = null, inputColorId = null) {
     if (!state.isAdmin) return;
 
     const valInput = document.getElementById(inputValId);
     const descInput = inputDescId ? document.getElementById(inputDescId) : null;
+    const colorInput = inputColorId ? document.getElementById(inputColorId) : null;
 
     const val = valInput ? valInput.value.trim() : "";
     const desc = descInput ? descInput.value.trim() : "";
+    const colorVal = colorInput ? colorInput.value.trim() : "";
 
     if (!val) {
         alert("Podaj wartość do dodania.");
@@ -3092,6 +3991,7 @@ function handleAddSetting(category, inputValId, inputDescId = null) {
 
     if (valInput) valInput.value = "";
     if (descInput) descInput.value = "";
+    if (colorInput) colorInput.value = "";
 
     // Optimistic UI - natychmiastowe dodanie wiersza w pamięci
     const catData = getSettingsCategoryData(category);
@@ -3105,6 +4005,8 @@ function handleAddSetting(category, inputValId, inputDescId = null) {
                 newRow[h] = catData.rows.length + 1;
             } else if (h === category) {
                 newRow[h] = val;
+            } else if (h === "Kolor") {
+                newRow[h] = colorVal;
             } else if (h === `Opis ${category.toLowerCase()}` || h === "Opis" || h.includes("Opis")) {
                 newRow[h] = desc;
             } else {
@@ -3114,13 +4016,16 @@ function handleAddSetting(category, inputValId, inputDescId = null) {
         catData.rows.push(newRow);
         renderStatsTables();
         populateFilterOptions();
+        renderGamesGrid();
+        renderProfileShowcase();
     }
 
     const apiParams = {
         action: "addSettingsItem",
         category: category,
         value: val,
-        description: desc
+        description: desc,
+        color: colorVal
     };
 
     enqueueSyncTask(
@@ -3130,6 +4035,8 @@ function handleAddSetting(category, inputValId, inputDescId = null) {
             if (res.status === "success") {
                 invalidateSettingsCache();
                 await fetchSettingsAndStats(true);
+                renderGamesGrid();
+                renderProfileShowcase();
             }
             return res;
         },
@@ -3139,6 +4046,8 @@ function handleAddSetting(category, inputValId, inputDescId = null) {
                 catData.rows = previousRows;
                 renderStatsTables();
                 populateFilterOptions();
+                renderGamesGrid();
+                renderProfileShowcase();
             }
         },
         apiParams

@@ -41,6 +41,8 @@
 
         <!-- Desktop Header Right -->
         <div class="header-right desktop-only">
+            <button id="btnOpenAddGameModal" class="action-btn btn-action-accent admin-only-block" style="display: none;" title="Dodaj nową grę">[+] Dodaj grę</button>
+            <button id="btnSyncCovers" class="action-btn admin-only-block" style="display: none;" title="Uzupełnij brakujące okładki z RAWG Video Games">Pobierz okładki</button>
             <button id="btnRefreshData" class="action-btn" title="Pobierz najświeższe dane z Google Sheets">[Odśwież]</button>
             <button id="btnToggleStats" class="action-btn">Ustawienia</button>
             <button id="btnAdminLoginModal" class="action-btn">Dostęp</button>
@@ -65,8 +67,9 @@
             </div>
         </div>
 
-        <!-- Mobile Header Right (Odśwież + Sync Status) -->
+        <!-- Mobile Header Right (Dodaj grę + Odśwież + Sync Status) -->
         <div class="mobile-header-right mobile-only">
+            <button id="btnMobileAddGame" class="action-btn btn-action-accent admin-only-block" style="display: none;" title="Dodaj nową grę">[+] Dodaj grę</button>
             <button id="btnMobileRefresh" class="action-btn" title="Odśwież">[Odśwież]</button>
             <div id="mobileSyncWrapper" class="sync-status-wrapper" style="display: none;">
                 <button id="btnMobileSyncStatus" class="sync-status-btn">
@@ -100,6 +103,10 @@
                     <span class="drawer-item-icon">⚙</span>
                     <span>Ustawienia Bazy</span>
                 </button>
+                <button id="btnMobileSyncCovers" class="drawer-menu-item admin-only-block" style="display: none;">
+                    <span class="drawer-item-icon">🖼</span>
+                    <span>Pobierz brakujące okładki</span>
+                </button>
                 <button id="btnMobileAdmin" class="drawer-menu-item">
                     <span class="drawer-item-icon">🔒</span>
                     <span id="mobileAdminLabel">Dostęp administratora</span>
@@ -121,182 +128,191 @@
 
     <!-- 2. WIDOK GŁÓWNY BIBLIOTEKI GIER (DASHBOARD) -->
     <main id="dashboardScreen" class="dashboard-screen" style="display: none;">
-        
-        <!-- BELKA PROFILU ZE STATYSTYKAMI I GABLOTĄ -->
-        <section class="profile-banner" id="profileBanner">
-            <div class="profile-banner-top">
-                <div class="profile-info-block">
-                    <img id="bannerProfileAvatar" src="assets/matthewmill.PNG" alt="Profil gracza" class="banner-avatar">
-                    <div>
-                        <h2 id="bannerProfileName" class="banner-username">MatthewMill (MM)</h2>
-                        <span id="bannerProfileSheet" class="banner-usersheet">Baza gier MM</span>
-                    </div>
-                </div>
-                
-                <!-- Szybkie statystyki profilu -->
-                <div class="profile-stats-grid">
-                    <div class="stat-card">
-                        <span class="stat-value" id="statTotalGames">0</span>
-                        <span class="stat-label">Łącznie gier</span>
-                    </div>
-                    <div class="stat-card">
-                        <span class="stat-value" id="statCompletedGames">0</span>
-                        <span class="stat-label">Ukończone</span>
-                    </div>
-                    <div class="stat-card">
-                        <span class="stat-value" id="statTotalHours">0h</span>
-                        <span class="stat-label">Łączny czas</span>
-                    </div>
-                    <div class="stat-card">
-                        <span class="stat-value" id="statAvgRating">0.0</span>
-                        <span class="stat-label">Średnia ocen</span>
-                    </div>
-                </div>
-            </div>
-
-            <!-- GABLOTA WYRÓŻNIONYCH GIER (W STYLU STEAM) -->
-            <div class="profile-showcase-section" id="profileShowcaseSection">
-                <div class="showcase-header">
-                    <h3>Wyróżnione gry</h3>
-                    <button id="btnEditShowcase" class="btn-card-action admin-only-block" style="display: none;">[Edytuj gablotę]</button>
-                </div>
-                <div id="showcaseGrid" class="showcase-grid">
-                    <p class="showcase-empty-hint">Brak wyróżnionych gier w gablocie.</p>
-                </div>
-            </div>
-        </section>
-
-        <!-- GŁÓWNE ZAKŁADKI NAWIGACJI (TABY) -->
-        <nav class="main-tabs-bar" id="mainNavTabs">
-            <button class="main-tab-btn active" id="tabBtnGames" data-target="tabViewGames">Baza gier</button>
-            <button class="main-tab-btn" id="tabBtnCharts" data-target="tabViewCharts">Wykresy</button>
-        </nav>
-
-        <!-- TAB 1: BAZA GIER (WYSZUKIWANIE, FILTRY, LISTA) -->
-        <section id="tabViewGames" class="main-tab-view">
-            <div class="dashboard-controls sticky-controls" id="dashboardControls">
-                <!-- LINIA 2: PRZYCISKI AKCJI ADMINA (DODAJ GRĘ) -->
-                <div id="adminActionsBar" class="admin-actions-bar" style="display: none;">
-                    <button id="btnOpenAddGameModal" class="btn-primary">[+] Dodaj nową grę</button>
-                </div>
-
-                <!-- LINIA 3: PASEK WYSZUKIWANIA, SORTOWANIE I PRZYCISK FILTRÓW -->
-                <div class="search-sort-bar">
-                    <div class="search-wrapper">
-                        <img src="assets/lupa.png" alt="Szukaj" class="search-bar-icon">
-                        <input type="text" id="searchInput" class="search-input" placeholder="Szukaj gry...">
-                        <button id="btnClearSearch" class="clear-btn" style="display: none;">[x]</button>
-                    </div>
-                    <div class="sort-wrapper">
-                        <label for="sortSelect" class="desktop-only">Sortuj:</label>
-                        <select id="sortSelect" class="form-select">
-                            <option value="updated_desc" selected>Ostatnio zaktualizowane</option>
-                            <option value="title_asc">Tytuł (A-Z)</option>
-                            <option value="title_desc">Tytuł (Z-A)</option>
-                            <option value="rating_desc">Ocena (Od najwyższej)</option>
-                            <option value="rating_asc">Ocena (Od najniższej)</option>
-                            <option value="hours_desc">Liczba godzin (Od największej)</option>
-                            <option value="date_desc">Data ukończenia (Od najnowszych)</option>
-                        </select>
-                    </div>
-                    <button type="button" id="btnToggleMobileFilters" class="btn-toggle-filters mobile-only" title="Pokaż / ukryj filtry">
-                        <img src="assets/filtr.png" alt="Filtry" class="filter-bar-icon">
-                        <span id="mobileFiltersBadge" class="filter-active-count" style="display: none;">0</span>
-                    </button>
-                </div>
-
-                <!-- FILTRY WIELOKROTNEGO WYBORU (LISTY ROZWIJANE) -->
-                <div class="filters-row" id="filtersRow">
-                    <!-- Filtr Stanu -->
-                    <div class="filter-dropdown-wrapper" id="filterStatusWrapper">
-                        <button type="button" class="filter-dropdown-btn" id="btnFilterStatus">
-                            <span id="labelFilterStatus">Stan: Wszystkie</span>
-                            <span class="dropdown-caret">v</span>
-                        </button>
-                        <div class="filter-dropdown-menu" id="menuFilterStatus" style="display: none;">
-                            <div class="filter-checklist" id="checklistStatus"></div>
+        <div class="dashboard-main-layout">
+            <!-- LEWA KOLUMNA: INFORMACJE + GABLOTA + STATYSTYKI, A POD SPODEM OBRAZ -->
+            <aside class="dashboard-left-column">
+                <!-- 1. BLOK PROFILU (INFORMACJE + GABLOTA + STATYSTYKI) -->
+                <section class="profile-banner" id="profileBanner">
+                    <div class="profile-info-block">
+                        <img id="bannerProfileAvatar" src="assets/matthewmill.PNG" alt="Profil gracza" class="banner-avatar">
+                        <div>
+                            <h2 id="bannerProfileName" class="banner-username">MatthewMill (MM)</h2>
+                            <span id="bannerProfileSheet" class="banner-usersheet">Baza gier MM</span>
                         </div>
                     </div>
 
-                    <!-- Filtr Platformy -->
-                    <div class="filter-dropdown-wrapper" id="filterPlatformWrapper">
-                        <button type="button" class="filter-dropdown-btn" id="btnFilterPlatform">
-                            <span id="labelFilterPlatform">Platforma: Wszystkie</span>
-                            <span class="dropdown-caret">v</span>
-                        </button>
-                        <div class="filter-dropdown-menu" id="menuFilterPlatform" style="display: none;">
-                            <div class="filter-checklist" id="checklistPlatform"></div>
+                    <div class="showcase-and-stats-block">
+                        <!-- GABLOTA WYRÓŻNIONYCH GIER (8 GIER) -->
+                        <div class="showcase-column">
+                            <div class="showcase-header">
+                                <h3>Wyróżnione gry</h3>
+                                <button id="btnEditShowcase" class="btn-card-action admin-only-block" style="display: none;">[Edytuj gablotę]</button>
+                            </div>
+                            <div id="showcaseShelfContainer" class="showcase-shelf-container">
+                                <!-- Ciemna szafka wyróżnionych gier generowana dynamicznie -->
+                            </div>
+                        </div>
+
+                        <!-- CIENKA PIONOWA KRESKA ODDZIELAJĄCA GABLOTĘ OD STATYSTYK -->
+                        <div class="banner-vertical-divider"></div>
+
+                        <!-- 4 STATYSTYKI PROFILU UŁOŻONE PIONOWO -->
+                        <div class="profile-stats-vertical-grid">
+                            <div class="stat-card">
+                                <span class="stat-value" id="statTotalGames">0</span>
+                                <span class="stat-label">Łącznie gier</span>
+                            </div>
+                            <div class="stat-card">
+                                <span class="stat-value" id="statCompletedGames">0</span>
+                                <span class="stat-label">Ukończone</span>
+                            </div>
+                            <div class="stat-card">
+                                <span class="stat-value" id="statTotalHours">0h</span>
+                                <span class="stat-label">Łączny czas</span>
+                            </div>
+                            <div class="stat-card">
+                                <span class="stat-value" id="statAvgRating">0.0</span>
+                                <span class="stat-label">Średnia ocen</span>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- 2. OBRAZ / MONITOR INFORMACYJNY (POD BELKĄ INFORMACJI) -->
+                <div class="shelf-sidebar-monitor">
+                    <div class="mc-monitor-container" id="mcMonitorContainer">
+                        <div class="mc-monitor-frame">
+                            <div class="mc-monitor-screen" id="mcMonitorScreen"></div>
+                        </div>
+                    </div>
+                </div>
+            </aside>
+
+            <!-- PRAWA KOLUMNA: WYSZUKIWARKA I PÓŁKI Z GRAMI (LUB WYKRESY) -->
+            <div class="dashboard-right-column">
+                <!-- TAB 1: BAZA GIER (WYSZUKIWARKA + PÓŁKI) -->
+                <section id="tabViewGames" class="main-tab-view">
+                    <!-- WYSZUKIWARKA, SORTOWANIE, GRUPOWANIE I FILTRY (OSOBNY ELEMENT NA GÓRZE) -->
+                    <div class="dashboard-controls" id="dashboardControls">
+                        <div class="search-sort-bar">
+                            <div class="search-wrapper">
+                                <img src="assets/lupa.png" alt="Szukaj" class="search-bar-icon">
+                                <input type="text" id="searchInput" class="search-input" placeholder="Szukaj gry...">
+                                <button id="btnClearSearch" class="clear-btn" style="display: none;">[x]</button>
+                            </div>
+                            <div class="sort-group-filters-row">
+                                <div class="sort-wrapper">
+                                    <label for="sortSelect" class="desktop-only">Sortuj:</label>
+                                    <select id="sortSelect" class="form-select">
+                                        <option value="updated_desc" selected>Ostatnio zaktualizowane</option>
+                                        <option value="title_asc">Tytuł (A-Z)</option>
+                                        <option value="title_desc">Tytuł (Z-A)</option>
+                                        <option value="rating_desc">Ocena (Od najwyższej)</option>
+                                        <option value="rating_asc">Ocena (Od najniższej)</option>
+                                        <option value="hours_desc">Liczba godzin (Od największej)</option>
+                                        <option value="date_desc">Data ukończenia (Od najnowszych)</option>
+                                    </select>
+                                </div>
+                                <div class="group-wrapper">
+                                    <label for="groupSelect" class="desktop-only">Grupuj:</label>
+                                    <select id="groupSelect" class="form-select">
+                                        <option value="none" selected>Brak</option>
+                                        <option value="status">Stan gry</option>
+                                        <option value="rating">Ocena gry</option>
+                                        <option value="platform">Platforma</option>
+                                        <option value="year">Rok ukończenia</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- FILTRY WIELOKROTNEGO WYBORU (LISTY ROZWIJANE) ORAZ TABY W PRAWYM ROGU -->
+                        <div class="filters-row" id="filtersRow">
+                            <!-- Filtr Stanu -->
+                            <div class="filter-dropdown-wrapper" id="filterStatusWrapper">
+                                <button type="button" class="filter-dropdown-btn" id="btnFilterStatus">
+                                    <span id="labelFilterStatus">Stan: Wszystkie</span>
+                                    <span class="dropdown-caret">v</span>
+                                </button>
+                                <div class="filter-dropdown-menu" id="menuFilterStatus" style="display: none;">
+                                    <div class="filter-checklist" id="checklistStatus"></div>
+                                </div>
+                            </div>
+
+                            <!-- Filtr Platformy -->
+                            <div class="filter-dropdown-wrapper" id="filterPlatformWrapper">
+                                <button type="button" class="filter-dropdown-btn" id="btnFilterPlatform">
+                                    <span id="labelFilterPlatform">Platforma: Wszystkie</span>
+                                    <span class="dropdown-caret">v</span>
+                                </button>
+                                <div class="filter-dropdown-menu" id="menuFilterPlatform" style="display: none;">
+                                    <div class="filter-checklist" id="checklistPlatform"></div>
+                                </div>
+                            </div>
+
+                            <!-- Filtr Kolekcji -->
+                            <div class="filter-dropdown-wrapper" id="filterCollectionWrapper">
+                                <button type="button" class="filter-dropdown-btn" id="btnFilterCollection">
+                                    <span id="labelFilterCollection">Kolekcje: Wszystkie</span>
+                                    <span class="dropdown-caret">v</span>
+                                </button>
+                                <div class="filter-dropdown-menu" id="menuFilterCollection" style="display: none;">
+                                    <div class="filter-checklist" id="checklistCollection"></div>
+                                </div>
+                            </div>
+
+                            <!-- Przycisk resetowania filtrów -->
+                            <button type="button" id="btnResetFilters" class="btn-secondary" style="font-size: 13px; padding: 6px 12px;">Resetuj</button>
+
+                            <!-- GŁÓWNE ZAKŁADKI NAWIGACJI (TABY W PRAWYM DOLNYM ROGU PASKA FILTRÓW) -->
+                            <nav class="main-tabs-bar dashboard-tabs-bar" id="mainNavTabs">
+                                <button class="main-tab-btn active" id="tabBtnGames" data-target="tabViewGames">Baza gier</button>
+                                <button class="main-tab-btn" id="tabBtnCharts" data-target="tabViewCharts">Wykresy</button>
+                            </nav>
                         </div>
                     </div>
 
-                    <!-- Filtr Kolekcji -->
-                    <div class="filter-dropdown-wrapper" id="filterCollectionWrapper">
-                        <button type="button" class="filter-dropdown-btn" id="btnFilterCollection">
-                            <span id="labelFilterCollection">Kolekcje: Wszystkie</span>
-                            <span class="dropdown-caret">v</span>
-                        </button>
-                        <div class="filter-dropdown-menu" id="menuFilterCollection" style="display: none;">
-                            <div class="filter-checklist" id="checklistCollection"></div>
+                    <!-- PRAWA STRONA: PÓŁKI Z GRAMI -->
+                    <div class="shelf-main-area">
+                        <!-- SKELETON LOADER -->
+                        <div id="skeletonLoader" class="skeleton-grid">
+                            <div class="skeleton-card"></div>
+                            <div class="skeleton-card"></div>
+                            <div class="skeleton-card"></div>
+                            <div class="skeleton-card"></div>
+                        </div>
+
+                        <!-- PÓŁKI Z GRAMI -->
+                        <div id="gamesShelvesContainer" class="games-shelves-container" style="display: none;"></div>
+
+                        <!-- KOMUNIKAT BRAKU WYNIKÓW -->
+                        <div id="emptyResultsMessage" class="empty-state" style="display: none;">
+                            <p>Nie znaleziono gier spełniających wybrane kryteria.</p>
                         </div>
                     </div>
+                </section>
 
-                    <div class="filter-reset">
-                        <button id="btnResetFilters" class="btn-link">Wyczyść filtry</button>
+                <!-- TAB 2: WYKRESY I PORÓWNANIA -->
+                <section id="tabViewCharts" class="main-tab-view" style="display: none;">
+                    <div class="charts-overview-container">
+                        <div class="chart-box">
+                            <div class="chart-header-bar">
+                                <h3>Porównanie profili graczy</h3>
+                                <nav class="main-tabs-bar dashboard-tabs-bar">
+                                    <button class="main-tab-btn" data-target="tabViewGames">Baza gier</button>
+                                    <button class="main-tab-btn active" data-target="tabViewCharts">Wykresy</button>
+                                </nav>
+                            </div>
+                            <div id="chartsComparisonContent" class="charts-comparison-content">
+                                <!-- Wypełniane dynamicznie w JS -->
+                            </div>
+                        </div>
                     </div>
-                </div>
-            </div>
-
-            <!-- PODSUMOWANIE WYNIKÓW -->
-            <div class="results-meta">
-                <span id="resultsCount">Ładowanie gier...</span>
-            </div>
-
-            <!-- SKELETON LOADER -->
-            <div id="skeletonLoader" class="skeleton-grid">
-                <div class="skeleton-card"></div>
-                <div class="skeleton-card"></div>
-                <div class="skeleton-card"></div>
-                <div class="skeleton-card"></div>
-                <div class="skeleton-card"></div>
-                <div class="skeleton-card"></div>
-            </div>
-
-            <!-- LISTA / SIATKA GIER -->
-            <div id="gamesGrid" class="games-grid" style="display: none;"></div>
-
-            <!-- KOMUNIKAT BRAKU WYNIKÓW -->
-            <div id="emptyResultsMessage" class="empty-state" style="display: none;">
-                <p>Nie znaleziono gier spełniających wybrane kryteria.</p>
-            </div>
-        </section>
-
-        <!-- TAB 2: WYKRESY I PORÓWNANIA -->
-        <section id="tabViewCharts" class="main-tab-view" style="display: none;">
-            <div class="charts-overview-container">
-                <div class="chart-box">
-                    <h3>Porównanie profili graczy</h3>
-                    <div id="chartsComparisonContent" class="charts-comparison-content">
-                        <!-- Wypełniane dynamicznie w JS -->
-                    </div>
-                </div>
-            </div>
-        </section>
-    </main>
-
-    <!-- 3. MODAL: SZCZEGÓŁY GRY (ZWIĘZŁY) -->
-    <div id="gameDetailsModal" class="modal-backdrop" style="display: none;">
-        <div class="modal-window modal-details">
-            <div class="modal-header">
-                <h2 id="modalGameTitle">Szczegóły gry</h2>
-            </div>
-            <div class="modal-body" id="modalGameBody">
-                <!-- Treść wypełniana dynamicznie w JS -->
-            </div>
-            <div class="modal-footer" id="modalGameFooter">
-                <button class="btn-secondary" data-close="gameDetailsModal">Zamknij</button>
+                </section>
             </div>
         </div>
-    </div>
+    </main>
+
 
     <!-- 4. MODAL: AUTORYZACJA I HASŁO DOSTĘPU -->
     <div id="adminLoginModal" class="modal-backdrop" style="display: none;">
@@ -318,6 +334,25 @@
                     <button type="submit" id="btnSubmitAdminLogin" class="btn-primary">Zaloguj</button>
                 </div>
             </form>
+        </div>
+    </div>
+
+    <!-- 4. MODAL: SZCZEGÓŁY GRY (DLA WIDOKU MOBILNEGO) -->
+    <div id="gameDetailsModal" class="modal-backdrop" style="display: none;">
+        <div class="modal-window modal-details">
+            <div class="modal-header">
+                <h2 id="detailsGameTitle">Szczegóły gry</h2>
+            </div>
+            <div class="modal-body" id="gameDetailsModalBody">
+                <!-- Szczegóły gry generowane dynamicznie w JS -->
+            </div>
+            <div class="modal-footer">
+                <div class="card-actions admin-only-block" id="detailsAdminActions" style="display: none; margin-right: auto;">
+                    <button type="button" class="btn-card-action btn-card-edit" id="btnDetailsEdit">Edytuj</button>
+                    <button type="button" class="btn-card-action btn-card-delete" id="btnDetailsDelete">Usuń</button>
+                </div>
+                <button type="button" class="action-btn" data-close="gameDetailsModal">Zamknij</button>
+            </div>
         </div>
     </div>
 
@@ -365,13 +400,33 @@
                         </div>
                     </div>
                     <div class="form-row">
-                        <div class="form-group col-6">
+                        <div class="form-group col-4">
                             <label for="formHours">Liczba godzin</label>
                             <input type="number" id="formHours" class="form-input" step="0.5" min="0">
                         </div>
-                        <div class="form-group col-6">
+                        <div class="form-group col-4">
                             <label for="formCompletionDate">Data ukończenia</label>
                             <input type="date" id="formCompletionDate" class="form-input">
+                        </div>
+                        <div class="form-group col-4">
+                            <label>Kolor stanu (Podgląd)</label>
+                            <div id="formColorPastelPreview" class="form-color-pastel-preview" style="margin-top: 2px;">
+                                <div id="formColorPastelSample" class="pastel-sample-box">
+                                    <span id="formColorPastelText">Tytuł gry</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group col-12">
+                            <label for="formGameImage">Okładka gry (RAWG / URL grafiki)</label>
+                            <div style="display: flex; gap: 8px; align-items: center;">
+                                <input type="text" id="formGameImage" class="form-input" placeholder="https://media.rawg.io/... (pozostaw puste, aby pobrać automatycznie z RAWG)">
+                                <button type="button" id="btnFetchCoverSingle" class="btn-secondary" style="white-space: nowrap; flex-shrink: 0;">Pobierz z RAWG</button>
+                            </div>
+                            <div id="formCoverPreviewBox" style="display: none; margin-top: 8px;">
+                                <img id="formCoverPreviewImg" src="" alt="Podgląd okładki" style="max-height: 80px; border-radius: 4px; border: 1px solid var(--color-border); object-fit: cover;">
+                            </div>
                         </div>
                     </div>
                     <div class="form-row">
@@ -420,6 +475,8 @@
                 <div class="tab-content" id="tabStan">
                     <div class="tab-actions admin-only-block" style="display: none;">
                         <input type="text" id="newStanVal" class="form-input-inline" placeholder="Nowy stan">
+                        <input type="color" id="newStanColorPicker" class="form-color-inline" value="#2a4365" title="Wybierz kolor stanu">
+                        <input type="text" id="newStanColor" class="form-input-inline" placeholder="#HEX" style="max-width: 90px;">
                         <input type="text" id="newStanDesc" class="form-input-inline" placeholder="Opis stanu">
                         <button id="btnAddStan" class="btn-primary">[+] Dodaj stan</button>
                     </div>
@@ -494,7 +551,7 @@
                 <h2>Edycja gabloty wyróżnionych gier</h2>
             </div>
             <div class="modal-body">
-                <p class="modal-hint">Zaznacz gry ze swojej biblioteki, które mają być prezentowane w gablocie na Twoim profilu.</p>
+                <p class="modal-hint">Wybierz do 8 wyróżnionych gier ze swojej biblioteki, które będą prezentowane na ciemnej półce wyróżnionych gier. <span id="showcaseSelectedCount" style="font-weight: bold; color: var(--color-text-main); margin-left: 6px;">(0/8)</span></p>
                 <div class="form-group">
                     <input type="text" id="showcaseSearchInput" class="form-input" placeholder="Filtruj listę gier...">
                 </div>
@@ -522,6 +579,13 @@
                     <div class="form-group">
                         <label for="editSettingNewValue" id="editSettingValueLabel">Wartość:</label>
                         <input type="text" id="editSettingNewValue" class="form-input" required>
+                    </div>
+                    <div class="form-group" id="editSettingColorGroup" style="display: none;">
+                        <label for="editSettingNewColor">Kolor stanu:</label>
+                        <div class="color-picker-input-wrapper">
+                            <input type="color" id="editSettingNewColorPicker" class="form-color-inline" value="#2a4365">
+                            <input type="text" id="editSettingNewColor" class="form-input" placeholder="#HEX">
+                        </div>
                     </div>
                     <div class="form-group" id="editSettingDescGroup">
                         <label for="editSettingNewDesc">Opis:</label>
@@ -556,9 +620,12 @@
     <!-- STOPKA (Ukryta na ekranie powitalnym) -->
     <footer class="app-footer" id="appFooter" style="display: none;">
         <div class="footer-content">
-            <span>&copy; NKMM Baza Gier - Osobisty rejestr rozgrywek | Wersja 1.1.1</span>
+            <span>&copy; NKMM Baza Gier - Osobisty rejestr rozgrywek | Wersja 2.0</span>
         </div>
     </footer>
+
+    <!-- PŁYWAJĄCY TOOLTIP MINECRAFT NAJECHANIA NA KSIĄŻKĘ -->
+    <div id="mcItemTooltip" class="mc-item-tooltip" style="display: none;"></div>
 
     <script src="js/app.js"></script>
 </body>
