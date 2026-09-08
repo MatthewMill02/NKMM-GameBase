@@ -2801,12 +2801,33 @@ body {
 
     .mobile-header-right {
         display: flex !important;
+        align-items: center;
+        gap: 6px;
+    }
+
+    .mobile-header-right .action-btn {
+        min-height: 32px;
+        height: 32px;
+        padding: 4px 10px;
+        font-size: 13px;
+        white-space: nowrap;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        line-height: 1;
     }
 
     .app-header {
         height: 50px;
         padding: 6px 12px;
         justify-content: space-between;
+    }
+
+    /* Ukrycie dymków Minecraft na telefonie */
+    #mcItemTooltip, .mc-item-tooltip {
+        display: none !important;
+        visibility: hidden !important;
+        pointer-events: none !important;
     }
 
     /* Przyklejony pasek wyszukiwania i filtrów na telefonie */
@@ -3195,6 +3216,95 @@ body {
 
     .shelf-group-shelves-row {
         justify-content: center;
+        gap: 16px;
+    }
+
+    /* Powiększona biblioteka na telefonie */
+    .game-shelf-unit {
+        width: 280px;
+        height: 280px;
+        padding: 10px 13px;
+        max-width: calc(100vw - 20px);
+    }
+
+    .shelf-tier {
+        height: 124px;
+        padding: 0 5px 3px 5px;
+    }
+
+    .shelf-stack {
+        width: 164px;
+        gap: 4px;
+    }
+
+    .shelf-stack.stack-left .game-spine:nth-child(1) {
+        margin-left: 0px;
+    }
+
+    .shelf-stack.stack-left .game-spine:nth-child(2) {
+        margin-left: 13px;
+    }
+
+    .shelf-stack.stack-left .game-spine:nth-child(3) {
+        margin-left: 4px;
+    }
+
+    .shelf-stack.stack-right .game-spine:nth-child(1) {
+        margin-right: 4px;
+    }
+
+    .shelf-stack.stack-right .game-spine:nth-child(2) {
+        margin-right: 18px;
+    }
+
+    .shelf-stack.stack-right .game-spine:nth-child(3) {
+        margin-right: 0px;
+    }
+
+    .shelf-vertical-slot {
+        width: 65px;
+    }
+
+    .shelf-lean-slot {
+        width: 85px;
+    }
+
+    .game-spine.spine-vertical {
+        width: 39px;
+        height: 108px;
+    }
+
+    .game-spine.spine-vertical.spine-upright {
+        margin-left: 3px;
+    }
+
+    .game-spine.spine-vertical.spine-leaned-right {
+        height: 101px;
+        width: 36px;
+        margin-right: 54px;
+        margin-bottom: 4px;
+    }
+
+    .game-spine-text {
+        font-size: 13px;
+        max-height: 96px;
+        padding-top: 6px;
+        padding-bottom: 4px;
+    }
+
+    .spine-leaned-right .game-spine-text {
+        max-height: 88px;
+    }
+
+    .game-spine.spine-horizontal {
+        width: 161px;
+        height: 32px;
+    }
+
+    .game-spine-text-horiz {
+        font-size: 13px;
+        line-height: 32px;
+        padding: 0 10px;
     }
 }
 

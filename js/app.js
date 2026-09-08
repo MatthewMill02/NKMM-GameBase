@@ -2756,6 +2756,7 @@ function toPastelSpineColor(hex) {
 }
 
 function showMcTooltip(title, status, x, y) {
+    if (window.innerWidth <= 768 || ('ontouchstart' in window && window.innerWidth <= 1024)) return;
     const tooltip = document.getElementById("mcItemTooltip");
     if (!tooltip) return;
 
