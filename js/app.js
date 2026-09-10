@@ -121,8 +121,21 @@ function initEvents() {
     const closeDrawerBtn = document.getElementById("btnCloseMobileDrawer");
     const drawerBackdrop = document.getElementById("mobileDrawerBackdrop");
 
-    const openMobileDrawer = () => { if (mobileNavDrawer) mobileNavDrawer.style.display = "flex"; };
-    const closeMobileDrawer = () => { if (mobileNavDrawer) mobileNavDrawer.style.display = "none"; };
+    const openMobileDrawer = () => {
+        if (mobileNavDrawer) {
+            mobileNavDrawer.style.display = "flex";
+            document.body.classList.add("modal-open");
+        }
+    };
+    const closeMobileDrawer = () => {
+        if (mobileNavDrawer) {
+            mobileNavDrawer.style.display = "none";
+        }
+        const hasOpenModals = Array.from(document.querySelectorAll(".modal-backdrop")).some(m => m.style.display !== "none" && m.style.display !== "");
+        if (!hasOpenModals) {
+            document.body.classList.remove("modal-open");
+        }
+    };
 
     if (mobileMenuToggle) mobileMenuToggle.addEventListener("click", openMobileDrawer);
     if (closeDrawerBtn) closeDrawerBtn.addEventListener("click", closeMobileDrawer);
@@ -3426,7 +3439,8 @@ function handleGameFormSubmit(e) {
         assignedId = maxExistingId + 1;
     }
 
-    const colorVal = (document.getElementById("formGameColor").value || "").trim();
+    const colorInput = document.getElementById("formGameColor");
+    const colorVal = colorInput ? (colorInput.value || "").trim() : "";
     const imageVal = (document.getElementById("formGameImage") ? document.getElementById("formGameImage").value : "").trim();
 
     const gameDetails = {
@@ -4105,12 +4119,22 @@ window.handleDeleteSettingItem = function(category, value) {
 
 function openModal(modalId) {
     const modal = document.getElementById(modalId);
-    if (modal) modal.style.display = "flex";
+    if (modal) {
+        modal.style.display = "flex";
+        document.body.classList.add("modal-open");
+    }
 }
 
 function closeModal(modalId) {
     const modal = document.getElementById(modalId);
-    if (modal) modal.style.display = "none";
+    if (modal) {
+        modal.style.display = "none";
+    }
+    const hasOpenModals = Array.from(document.querySelectorAll(".modal-backdrop")).some(m => m.style.display !== "none" && m.style.display !== "");
+    const isDrawerOpen = document.getElementById("mobileNavDrawer") && document.getElementById("mobileNavDrawer").style.display !== "none" && document.getElementById("mobileNavDrawer").style.display !== "";
+    if (!hasOpenModals && !isDrawerOpen) {
+        document.body.classList.remove("modal-open");
+    }
 }
 
 function parseNum(val) {
