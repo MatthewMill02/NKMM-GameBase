@@ -4274,8 +4274,8 @@ function openModal(modalId) {
     const modal = document.getElementById(modalId);
     if (modal) {
         modal.style.display = "flex";
-        // Pop-up szczegółów gry (gameDetailsModal) nie blokuje/chowa scrolla strony
-        if (modalId !== "gameDetailsModal") {
+        // Pop-up szczegółów gry (gameDetailsModal) oraz edycji gry (gameEditModal) nie blokują/chowają scrolla strony
+        if (modalId !== "gameDetailsModal" && modalId !== "gameEditModal") {
             document.body.classList.add("modal-open");
         }
     }
@@ -4286,7 +4286,7 @@ function closeModal(modalId) {
     if (modal) {
         modal.style.display = "none";
     }
-    const hasOpenModals = Array.from(document.querySelectorAll(".modal-backdrop")).some(m => m.id !== "gameDetailsModal" && m.style.display !== "none" && m.style.display !== "");
+    const hasOpenModals = Array.from(document.querySelectorAll(".modal-backdrop")).some(m => m.id !== "gameDetailsModal" && m.id !== "gameEditModal" && m.style.display !== "none" && m.style.display !== "");
     const isDrawerOpen = document.getElementById("mobileNavDrawer") && document.getElementById("mobileNavDrawer").style.display !== "none" && document.getElementById("mobileNavDrawer").style.display !== "";
     if (!hasOpenModals && !isDrawerOpen) {
         document.body.classList.remove("modal-open");
