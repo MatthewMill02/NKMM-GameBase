@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>NKMM Baza Gier - Biblioteka i Statystyki</title>
     <meta name="description" content="Osobista baza i rejestr gier wideo NKMM z synchronizacją w chmurze.">
+    <link rel="icon" id="dynamicFavicon" type="image/jpeg" href="assets/icon.jpg">
     <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
@@ -18,8 +19,8 @@
             <!-- Rozwijane menu profili -->
             <div class="profile-dropdown-wrapper" id="profileDropdownWrapper">
                 <button class="active-profile-btn" id="activeProfileBtn" title="Kliknij, aby zmienić profil">
-                    <img id="activeProfileAvatar" src="assets/matthewmill.PNG" alt="Avatar" class="mini-avatar">
-                    <span id="activeProfileName">MatthewMill (MM)</span>
+                    <img id="activeProfileAvatar" src="assets/Baza gier MM.PNG" alt="Avatar" class="mini-avatar" onerror="this.src='assets/icon.jpg'">
+                    <span id="activeProfileName">Baza gier MM</span>
                     <span class="dropdown-caret">v</span>
                 </button>
                 <div class="profile-dropdown-menu" id="profileDropdownMenu" style="display: none;">
@@ -34,8 +35,8 @@
                 <span class="hamburger-icon">☰</span>
             </button>
             <div class="mobile-header-user-tag" id="mobileHeaderUserTag">
-                <img id="mobileActiveAvatar" src="assets/matthewmill.PNG" alt="Avatar" class="mini-avatar">
-                <span id="mobileActiveName">MM</span>
+                <img id="mobileActiveAvatar" src="assets/Baza gier MM.PNG" alt="Avatar" class="mini-avatar" onerror="this.src='assets/icon.jpg'">
+                <span id="mobileActiveName">Baza gier MM</span>
             </div>
         </div>
 
@@ -134,11 +135,14 @@
                 <!-- 1. BLOK PROFILU (INFORMACJE + GABLOTA + STATYSTYKI) -->
                 <section class="profile-banner" id="profileBanner">
                     <div class="profile-info-block">
-                        <img id="bannerProfileAvatar" src="assets/matthewmill.PNG" alt="Profil gracza" class="banner-avatar">
-                        <div>
-                            <h2 id="bannerProfileName" class="banner-username">MatthewMill (MM)</h2>
-                            <span id="bannerProfileSheet" class="banner-usersheet">Baza gier MM</span>
+                        <div class="profile-info-user">
+                            <img id="bannerProfileAvatar" src="assets/Baza gier MM.PNG" alt="Profil gracza" class="banner-avatar" onerror="this.src='assets/icon.jpg'">
+                            <div>
+                                <h2 id="bannerProfileName" class="banner-username">Baza gier MM</h2>
+                                <span id="bannerProfileSheet" class="banner-usersheet">Baza gier MM</span>
+                            </div>
                         </div>
+                        <button id="btnEditShowcase" class="btn-card-action admin-only-block" style="display: none;" title="Edytuj gablotę wyróżnionych gier">[Edytuj gablotę]</button>
                     </div>
 
                     <div class="showcase-and-stats-block">
@@ -146,7 +150,6 @@
                         <div class="showcase-column">
                             <div class="showcase-header">
                                 <h3>Wyróżnione gry</h3>
-                                <button id="btnEditShowcase" class="btn-card-action admin-only-block" style="display: none;">[Edytuj gablotę]</button>
                             </div>
                             <div id="showcaseShelfContainer" class="showcase-shelf-container">
                                 <!-- Ciemna szafka wyróżnionych gier generowana dynamicznie -->
@@ -183,6 +186,10 @@
                     <div class="mc-monitor-container" id="mcMonitorContainer">
                         <div class="mc-monitor-frame">
                             <div class="mc-monitor-screen" id="mcMonitorScreen"></div>
+                        </div>
+                        <div class="mc-monitor-actions admin-only-block" id="mcMonitorActions">
+                            <button type="button" class="monitor-ext-btn monitor-ext-edit" id="btnMonitorExtEdit" disabled title="Edytuj wybraną grę"></button>
+                            <button type="button" class="monitor-ext-btn monitor-ext-delete" id="btnMonitorExtDelete" disabled title="Usuń wybraną grę"></button>
                         </div>
                     </div>
                 </div>
@@ -262,7 +269,7 @@
                             </div>
 
                             <!-- Przycisk resetowania filtrów -->
-                            <button type="button" id="btnResetFilters" class="btn-secondary" style="font-size: 13px; padding: 6px 12px;">Resetuj</button>
+                            <button type="button" id="btnResetFilters" class="btn-secondary" style="font-size: 14px; padding: 6px 12px;">Resetuj</button>
 
                             <!-- GŁÓWNE ZAKŁADKI NAWIGACJI (TABY W PRAWYM DOLNYM ROGU PASKA FILTRÓW) -->
                             <nav class="main-tabs-bar dashboard-tabs-bar" id="mainNavTabs">
@@ -317,15 +324,15 @@
     <!-- 4. MODAL: AUTORYZACJA I HASŁO DOSTĘPU -->
     <div id="adminLoginModal" class="modal-backdrop" style="display: none;">
         <div class="modal-window modal-small">
-            <div class="modal-header">
-                <h2>Autoryzacja i hasło dostępu</h2>
-            </div>
             <form id="adminLoginForm">
                 <div class="modal-body">
-                    <p class="modal-hint">Podaj hasło administratora, aby uzyskać uprawnienia do zapisu, edycji i zarządzania użytkownikami.</p>
+                    <div class="form-group">
+                        <label for="adminUserSelect">Baza gracza (login):</label>
+                        <select id="adminUserSelect" class="form-select" required></select>
+                    </div>
                     <div class="form-group">
                         <label for="adminPasswordInput">Hasło:</label>
-                        <input type="password" id="adminPasswordInput" class="form-input" required autocomplete="current-password">
+                        <input type="password" id="adminPasswordInput" class="form-input" required autocomplete="current-password" placeholder="Wpisz hasło bazy">
                     </div>
                     <div id="adminLoginError" class="form-error" style="display: none;"></div>
                 </div>
@@ -400,52 +407,40 @@
                         </div>
                     </div>
                     <div class="form-row">
-                        <div class="form-group col-4">
+                        <div class="form-group col-3">
                             <label for="formHours">Liczba godzin</label>
                             <input type="number" id="formHours" class="form-input" step="0.5" min="0">
                         </div>
-                        <div class="form-group col-4">
+                        <div class="form-group col-3">
                             <label for="formCompletionDate">Data ukończenia</label>
                             <input type="date" id="formCompletionDate" class="form-input">
                         </div>
-                        <div class="form-group col-4">
-                            <label>Kolor stanu (Podgląd)</label>
-                            <div id="formColorPastelPreview" class="form-color-pastel-preview" style="margin-top: 2px;">
-                                <div id="formColorPastelSample" class="pastel-sample-box">
-                                    <span id="formColorPastelText">Tytuł gry</span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="form-row">
-                        <div class="form-group col-12">
-                            <label for="formGameImage">Okładka gry (RAWG / URL grafiki)</label>
+                        <div class="form-group col-6">
+                            <label for="formGameImage">Okładka gry (RAWG / URL)</label>
                             <div style="display: flex; gap: 8px; align-items: center;">
-                                <input type="text" id="formGameImage" class="form-input" placeholder="https://media.rawg.io/... (pozostaw puste, aby pobrać automatycznie z RAWG)">
-                                <button type="button" id="btnFetchCoverSingle" class="btn-secondary" style="white-space: nowrap; flex-shrink: 0;">Pobierz z RAWG</button>
+                                <input type="text" id="formGameImage" class="form-input" placeholder="URL grafiki (lub pobierz z RAWG)">
+                                <button type="button" id="btnFetchCoverSingle" class="btn-secondary" style="white-space: nowrap; flex-shrink: 0; padding: 6px 10px;">RAWG</button>
                             </div>
-                            <div id="formCoverPreviewBox" style="display: none; margin-top: 8px;">
-                                <img id="formCoverPreviewImg" src="" alt="Podgląd okładki" style="max-height: 80px; border-radius: 4px; border: 1px solid var(--color-border); object-fit: cover;">
+                            <div id="formCoverPreviewBox" style="display: none; margin-top: 6px;">
+                                <img id="formCoverPreviewImg" src="" alt="Podgląd okładki" style="max-height: 60px; border-radius: 4px; border: 1px solid var(--color-border); object-fit: cover;">
                             </div>
                         </div>
                     </div>
                     <div class="form-row">
                         <div class="form-group col-12">
-                            <label for="formCollections">Kolekcje / Tagi (oddzielone przecinkami)</label>
-                            <input type="text" id="formCollections" class="form-input" placeholder="np. Najlepsze, Ulubione, Demo, Gablota">
-                            <div class="form-tags-picker-wrapper" style="margin-top: 10px;">
-                                <span style="font-size: 12px; color: var(--color-text-muted); display: block; margin-bottom: 6px;">Specjalne tagi:</span>
-                                <div id="formSpecialTagsContainer" class="form-available-tags" style="margin-bottom: 10px;"></div>
-
-                                <span style="font-size: 12px; color: var(--color-text-muted); display: block; margin-bottom: 6px;">Dostępne tagi ze słownika (kliknij, aby dodać/usunąć):</span>
-                                <div id="formAvailableTagsContainer" class="form-available-tags"></div>
+                            <label>Tagi</label>
+                            <input type="hidden" id="formCollections" value="">
+                            <div class="form-tags-picker-wrapper">
+                                <div id="formAvailableTagsContainer" class="form-available-tags" style="margin-bottom: 8px;"></div>
+                                <span style="font-size: 14px; color: var(--color-text-muted); display: block; margin-bottom: 6px;">Specjalne tagi:</span>
+                                <div id="formSpecialTagsContainer" class="form-available-tags"></div>
                             </div>
                         </div>
                     </div>
                     <div class="form-row">
                         <div class="form-group col-12">
                             <label for="formReview">Recenzja / Notatka</label>
-                            <textarea id="formReview" class="form-textarea" rows="4"></textarea>
+                            <textarea id="formReview" class="form-textarea" rows="7"></textarea>
                         </div>
                     </div>
                     <div id="gameEditError" class="form-error" style="display: none;"></div>
@@ -521,14 +516,10 @@
             </div>
             <form id="addUserForm">
                 <div class="modal-body">
-                    <p class="modal-hint">Tworzy nowy arkusz bazy gier oraz automatycznie dopisuje kolumny i formuły statystyczne we wszystkich arkuszach.</p>
+                    <p class="modal-hint">Tworzy nową zakładkę bazy gier "Baza gier {Inicjały}" oraz automatycznie dopisuje kolumny i formuły statystyczne we wszystkich arkuszach.</p>
                     <div class="form-group">
-                        <label for="newUserName">Nazwa / Imię użytkownika *</label>
-                        <input type="text" id="newUserName" class="form-input" required placeholder="np. Jan Kowalski">
-                    </div>
-                    <div class="form-group">
-                        <label for="newUserCode">Kod arkusza (Inicjały) *</label>
-                        <input type="text" id="newUserCode" class="form-input" required placeholder="np. JK" maxlength="5" style="text-transform: uppercase;">
+                        <label for="newUserCode">Inicjały gracza (np. MM, NK, PW) *</label>
+                        <input type="text" id="newUserCode" class="form-input" required placeholder="np. PW" maxlength="5" style="text-transform: uppercase;">
                     </div>
                     <div class="form-group">
                         <label for="newUserColor">Kolor zakładki arkusza</label>
@@ -617,10 +608,10 @@
         </div>
     </div>
 
-    <!-- STOPKA (Ukryta na ekranie powitalnym) -->
-    <footer class="app-footer" id="appFooter" style="display: none;">
+    <!-- STOPKA -->
+    <footer class="app-footer" id="appFooter">
         <div class="footer-content">
-            <span>&copy; NKMM Baza Gier - Osobisty rejestr rozgrywek | Wersja 2.2</span>
+            <span>&copy; NKMM Baza Gier | Wersja 2.3</span>
         </div>
     </footer>
 

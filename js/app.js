@@ -44,14 +44,21 @@ const CACHE_KEYS = {
     ADMIN_AUTH: "nkmm_admin_auth"
 };
 
+function getUserAvatarPath(userOrSheet) {
+    if (!userOrSheet) return "assets/icon.jpg";
+    const sheetName = typeof userOrSheet === "string" ? userOrSheet.trim() : (userOrSheet.sheetName || userOrSheet.name || "").trim();
+    if (!sheetName) return "assets/icon.jpg";
+    return `assets/${sheetName}.PNG`;
+}
+
 // Stan aplikacji
 const state = {
     currentScreen: "welcome", // "welcome" | "dashboard"
     currentTab: "tabViewGames", // "tabViewGames" | "tabViewCharts"
     currentUser: null,
     users: [
-        { code: "MM", name: "MatthewMill (MM)", sheetName: "Baza gier MM", avatar: "assets/matthewmill.PNG", color: "#13a71f", hoverColor: "#0f8518" },
-        { code: "NK", name: "R4sheg (NK)", sheetName: "Baza gier NK", avatar: "assets/rasheg.PNG", color: "#A81214", hoverColor: "#860e10" }
+        { code: "MM", name: "Baza gier MM", sheetName: "Baza gier MM", avatar: "assets/Baza gier MM.PNG", color: "#13a71f", hoverColor: "#0f8518" },
+        { code: "NK", name: "Baza gier NK", sheetName: "Baza gier NK", avatar: "assets/Baza gier NK.PNG", color: "#A81214", hoverColor: "#860e10" }
     ],
     games: [],
     // Pamięć podręczna w ramach sesji
@@ -161,7 +168,7 @@ function initEvents() {
         if (state.isAdmin) {
             handleAdminLogout();
         } else {
-            openModal("adminLoginModal");
+            openAdminLoginModal();
         }
     });
 
@@ -444,7 +451,7 @@ function initEvents() {
     });
 
     // Administrator
-    document.getElementById("btnAdminLoginModal").addEventListener("click", () => openModal("adminLoginModal"));
+    document.getElementById("btnAdminLoginModal").addEventListener("click", openAdminLoginModal);
     document.getElementById("adminLoginForm").addEventListener("submit", handleAdminLogin);
     document.getElementById("btnLogoutAdmin").addEventListener("click", handleAdminLogout);
 
@@ -577,6 +584,9 @@ function initEvents() {
             renderWelcomeHeads();
         }
     });
+
+    // Dynamiczne zachowanie obrazu (v2.3)
+    initMonitorScrollBehavior();
 }
 
 // ===================================================
@@ -915,7 +925,7 @@ function renderWelcomeHeads() {
         card.setAttribute("title", `Kliknij, aby otworzyć bazę gracza: ${user.name}`);
 
         card.innerHTML = `
-            <img src="${user.avatar}" alt="${user.code}" class="scatter-head-img" onerror="this.src='assets/matthewmill.PNG'">
+            <img src="${user.avatar}" alt="${user.code}" class="scatter-head-img" onerror="this.src='assets/icon.jpg'">
             <span class="scatter-head-name">${user.name}</span>
         `;
 
@@ -937,12 +947,30 @@ function applyUserTheme(user) {
     }
 }
 
+function updateBrowserTab(user = null) {
+    const faviconEl = document.getElementById("dynamicFavicon");
+    if (user) {
+        // Tytuł: dokładnie nazwa bazy użytkownika, np. "Baza gier MM"
+        document.title = user.name || user.sheetName || "NKMM Baza Gier";
+        if (faviconEl) {
+            faviconEl.href = user.avatar || "assets/icon.jpg";
+        }
+    } else {
+        document.title = "NKMM Baza Gier - Biblioteka i Statystyki";
+        if (faviconEl) {
+            faviconEl.href = "assets/icon.jpg";
+        }
+    }
+}
+
 function showWelcomeScreen() {
     state.currentScreen = "welcome";
+    document.body.classList.add("screen-welcome");
     applyUserTheme(null);
+    updateBrowserTab(null);
 
     document.getElementById("appHeader").style.display = "none";
-    document.getElementById("appFooter").style.display = "none";
+    document.getElementById("appFooter").style.display = "block";
     document.getElementById("welcomeScreen").style.display = "flex";
     document.getElementById("dashboardScreen").style.display = "none";
 
@@ -951,6 +979,7 @@ function showWelcomeScreen() {
 
 function showDashboardScreen() {
     state.currentScreen = "dashboard";
+    document.body.classList.remove("screen-welcome");
 
     document.getElementById("appHeader").style.display = "flex";
     document.getElementById("appFooter").style.display = "block";
@@ -958,6 +987,7 @@ function showDashboardScreen() {
     document.getElementById("dashboardScreen").style.display = "block";
 
     switchMainTab(state.currentTab);
+    requestAnimationFrame(() => updateMonitorScrollPosition());
 }
 
 // ===================================================
@@ -1861,7 +1891,7 @@ function renderRatingsComparisonBars(mmGames, nkGames, mmUser, nkUser) {
 
         return `
             <div class="chart-dual-row chart-interactive-item" data-tooltip-header="${escapeHtml(item.label)}" data-tooltip-rows="${rowsEncoded}">
-                <span class="chart-bar-label" style="font-size: 11px;">${escapeHtml(item.label)}</span>
+                <span class="chart-bar-label" style="font-size: 14px;">${escapeHtml(item.label)}</span>
                 <div class="chart-dual-bars">
                     <div class="chart-single-bar-container">
                         <div class="chart-single-bar-track">
@@ -1889,6 +1919,7 @@ function switchUserProfile(user) {
     state.currentUser = user;
     applyUserTheme(user);
     checkAdminStatusForUser(user);
+    updateBrowserTab(user);
     showDashboardScreen();
 
     // Natychmiastowa aktualizacja nagłówka oraz belki profilu
@@ -1919,13 +1950,13 @@ function renderProfileDropdownMenu() {
 
     if (menu) {
         if (otherUsers.length === 0) {
-            menu.innerHTML = '<div style="padding:10px 14px; font-size:13px; color:#888;">Brak innych profili</div>';
+            menu.innerHTML = '<div style="padding:10px 14px; font-size:14px; color:#888;">Brak innych profili</div>';
         } else {
             otherUsers.forEach(u => {
                 const item = document.createElement("button");
                 item.className = "profile-menu-item";
                 item.innerHTML = `
-                    <img src="${u.avatar}" alt="${u.code}" class="mini-avatar" onerror="this.src='assets/matthewmill.PNG'">
+                    <img src="${u.avatar}" alt="${u.code}" class="mini-avatar" onerror="this.src='assets/icon.jpg'">
                     <span>${escapeHtml(u.name)}</span>
                 `;
                 item.addEventListener("click", () => {
@@ -1943,7 +1974,7 @@ function renderProfileDropdownMenu() {
             const btn = document.createElement("button");
             btn.className = `mobile-profile-item ${isActive ? "active" : ""}`;
             btn.innerHTML = `
-                <img src="${u.avatar}" alt="${u.code}" class="mini-avatar" onerror="this.src='assets/matthewmill.PNG'">
+                <img src="${u.avatar}" alt="${u.code}" class="mini-avatar" onerror="this.src='assets/icon.jpg'">
                 <span>${escapeHtml(u.name)}</span>
             `;
             btn.addEventListener("click", () => {
@@ -1971,7 +2002,8 @@ async function fetchUsersList(forceRefresh = false) {
                 let existing = state.users.find(u => u.code === remoteUser.code);
                 const isMM = remoteUser.code === "MM";
                 const isNK = remoteUser.code === "NK";
-                const defaultName = isMM ? "MatthewMill (MM)" : (isNK ? "R4sheg (NK)" : `${remoteUser.name} (${remoteUser.code})`);
+                // Główną nazwą jest dokładnie nazwa zakładki w Google Sheets, np. "Baza gier MM"
+                const defaultName = remoteUser.sheetName || (remoteUser.name && remoteUser.name.startsWith("Baza gier ") ? remoteUser.name : `Baza gier ${remoteUser.code}`);
                 const defaultColor = isMM ? "#13a71f" : (isNK ? "#A81214" : (remoteUser.tabColor || "#2a4365"));
                 const defaultHover = isMM ? "#0f8518" : (isNK ? "#860e10" : (remoteUser.tabColor || "#1e314b"));
 
@@ -1979,8 +2011,8 @@ async function fetchUsersList(forceRefresh = false) {
                     existing = {
                         code: remoteUser.code,
                         name: defaultName,
-                        sheetName: remoteUser.sheetName,
-                        avatar: isMM ? "assets/matthewmill.PNG" : (isNK ? "assets/rasheg.PNG" : "assets/matthewmill.PNG"),
+                        sheetName: remoteUser.sheetName || defaultName,
+                        avatar: getUserAvatarPath(remoteUser.sheetName || defaultName),
                         color: defaultColor,
                         hoverColor: defaultHover
                     };
@@ -2007,6 +2039,14 @@ async function fetchUsersList(forceRefresh = false) {
                     renderWelcomeHeads();
                 }
                 renderProfileDropdownMenu();
+                if (state.currentUser) {
+                    const currentUpdated = state.users.find(u => u.code === state.currentUser.code);
+                    if (currentUpdated) {
+                        state.currentUser = currentUpdated;
+                        updateProfileBanner();
+                        updateBrowserTab(currentUpdated);
+                    }
+                }
             }
         }
     } catch (e) {
@@ -2205,10 +2245,10 @@ function openGameDetailsModal(game) {
         return low !== "demo" && low !== "gablota";
     });
 
-    const demoBadgeHtml = isDemo ? `<span class="demo-tag-label" style="font-size: 11px; padding: 1px 6px; background: #9c27b0; color: #fff; border-radius: 3px; margin-left: 6px;">Demo</span>` : "";
+    const demoBadgeHtml = isDemo ? `<span class="demo-tag-label" style="font-size: 14px; padding: 2px 8px; background: #9c27b0; color: #fff; border-radius: 3px; margin-left: 6px;">Demo</span>` : "";
     const tagsHtml = visibleTags.map(t => {
         const col = getTagColor(t);
-        return `<span class="tag-pill" style="background-color: ${col.bg}; border-color: ${col.border}; color: ${col.text}; font-size: 11px;">${escapeHtml(t)}</span>`;
+        return `<span class="tag-pill" style="background-color: ${col.bg}; border-color: ${col.border}; color: ${col.text}; font-size: 14px;">${escapeHtml(t)}</span>`;
     }).join("");
 
     if (titleEl) titleEl.innerHTML = `${title}${demoBadgeHtml}`;
@@ -2229,7 +2269,7 @@ function openGameDetailsModal(game) {
                 <span style="font-weight: bold; font-size: 14px;">Ocena główna:</span>
                 <span class="game-rating-badge" style="font-size: 15px; padding: 3px 8px;">${rating}</span>
             </div>
-            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; text-align: center; font-size: 12px;">
+            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; text-align: center; font-size: 14px;">
                 <div><span style="color: var(--color-text-muted); display: block;">Fabuła</span><strong>${fabuła}</strong></div>
                 <div><span style="color: var(--color-text-muted); display: block;">Grafika</span><strong>${grafika}</strong></div>
                 <div><span style="color: var(--color-text-muted); display: block;">Mechanika</span><strong>${mechanika}</strong></div>
@@ -2238,14 +2278,14 @@ function openGameDetailsModal(game) {
 
         ${tagsHtml ? `
             <div style="margin-bottom: 12px;">
-                <span style="font-size: 11px; color: var(--color-text-muted); text-transform: uppercase; font-weight: bold; display: block; margin-bottom: 4px;">Kolekcje / Tagi:</span>
+                <span style="font-size: 14px; color: var(--color-text-muted); text-transform: uppercase; font-weight: bold; display: block; margin-bottom: 4px;">Kolekcje / Tagi:</span>
                 <div class="game-tags" style="margin: 0; border: none; padding: 0;">${tagsHtml}</div>
             </div>
         ` : ""}
 
         ${review ? `
             <div style="margin-bottom: 10px;">
-                <span style="font-size: 11px; color: var(--color-text-muted); text-transform: uppercase; font-weight: bold; display: block; margin-bottom: 4px;">Recenzja / Notatka:</span>
+                <span style="font-size: 14px; color: var(--color-text-muted); text-transform: uppercase; font-weight: bold; display: block; margin-bottom: 4px;">Recenzja / Notatka:</span>
                 <div class="game-review-snippet" style="margin: 0; border: none; padding: 0; white-space: pre-wrap;">${escapeHtml(review)}</div>
             </div>
         ` : ""}
@@ -2278,9 +2318,34 @@ function renderMonitorGameDetails(game) {
     const screen = document.getElementById("mcMonitorScreen");
     if (!screen) return;
 
+    const btnExtEdit = document.getElementById("btnMonitorExtEdit");
+    const btnExtDelete = document.getElementById("btnMonitorExtDelete");
+
     if (!game) {
         screen.innerHTML = "";
+        if (btnExtEdit) {
+            btnExtEdit.disabled = true;
+            btnExtEdit.innerHTML = "";
+            btnExtEdit.onclick = null;
+        }
+        if (btnExtDelete) {
+            btnExtDelete.disabled = true;
+            btnExtDelete.innerHTML = "";
+            btnExtDelete.onclick = null;
+        }
         return;
+    }
+
+    // Aktualizacja przycisków pod obrazem
+    if (btnExtEdit) {
+        btnExtEdit.disabled = false;
+        btnExtEdit.innerHTML = `<span>Edytuj grę</span>`;
+        btnExtEdit.onclick = () => openGameEditModal(game);
+    }
+    if (btnExtDelete) {
+        btnExtDelete.disabled = false;
+        btnExtDelete.innerHTML = `<span>Usuń grę</span>`;
+        btnExtDelete.onclick = () => handleDeleteGame(game.id, game["Tytuł"]);
     }
 
     const title = escapeHtml(game["Tytuł"] || "Brak tytułu");
@@ -2306,21 +2371,11 @@ function renderMonitorGameDetails(game) {
         return low !== "demo" && low !== "gablota";
     });
 
-    const demoBadgeHtml = isDemo ? `<span class="demo-tag-label" style="font-size: 11px; padding: 1px 6px; background: #9c27b0; color: #fff; border-radius: 3px; margin-left: 6px;">Demo</span>` : "";
+    const demoBadgeHtml = isDemo ? `<span class="demo-tag-label" style="font-size: 14px; padding: 2px 8px; background: #9c27b0; color: #fff; border-radius: 3px; margin-left: 6px;">Demo</span>` : "";
     const tagsHtml = visibleTags.map(t => {
         const col = getTagColor(t);
-        return `<span class="tag-pill" style="background-color: ${col.bg}; border-color: ${col.border}; color: ${col.text}; font-size: 11px;">${escapeHtml(t)}</span>`;
+        return `<span class="tag-pill" style="background-color: ${col.bg}; border-color: ${col.border}; color: ${col.text}; font-size: 14px;">${escapeHtml(t)}</span>`;
     }).join("");
-
-    let adminPanelHtml = "";
-    if (state.isAdmin) {
-        adminPanelHtml = `
-            <div class="monitor-admin-panel">
-                <button type="button" class="btn-card-action btn-card-edit" id="btnMonitorEdit" data-id="${game.id}">Edytuj grę</button>
-                <button type="button" class="btn-card-action btn-card-delete" id="btnMonitorDelete" data-id="${game.id}">Usuń grę</button>
-            </div>
-        `;
-    }
 
     screen.innerHTML = `
         <div class="monitor-details-content">
@@ -2374,23 +2429,12 @@ function renderMonitorGameDetails(game) {
                     <div class="monitor-review-text">${escapeHtml(review)}</div>
                 </div>
             ` : ""}
-
-            ${adminPanelHtml}
         </div>
     `;
 
     const coverBtn = screen.querySelector("#monitorCoverBtn");
     if (coverBtn) {
         coverBtn.addEventListener("click", () => openGameDetailsModal(game));
-    }
-
-    const editBtn = screen.querySelector("#btnMonitorEdit");
-    if (editBtn) {
-        editBtn.addEventListener("click", () => openGameEditModal(game));
-    }
-    const delBtn = screen.querySelector("#btnMonitorDelete");
-    if (delBtn) {
-        delBtn.addEventListener("click", () => handleDeleteGame(game.id, game["Tytuł"]));
     }
 }
 
@@ -2559,9 +2603,14 @@ function renderGamesShelves() {
         shelvesContainer.innerHTML = "";
     }
 
-    // Ustalenie aktywnej gry dla monitora (jeśli gra była wybrana, sprawdzamy czy nadal jest w wynikach)
-    if (state.selectedGame && !filtered.some(g => String(g.id) === String(state.selectedGame.id))) {
-        state.selectedGame = null;
+    // Ustalenie aktywnej gry dla monitora (jeśli gra była wybrana, pobieramy jej najświeższe dane z bazy)
+    if (state.selectedGame) {
+        const freshSelected = state.games.find(g => String(g.id) === String(state.selectedGame.id));
+        if (freshSelected) {
+            state.selectedGame = freshSelected;
+        } else {
+            state.selectedGame = null;
+        }
     }
     renderMonitorGameDetails(state.selectedGame);
 
@@ -2831,6 +2880,7 @@ const DEFAULT_STATUS_COLORS = {
 function getSpineColorForGame(game) {
     if (!game) return "#2f3e52";
     const status = (game["Stan"] || "").toString().trim().toLowerCase();
+    const userCode = state.currentUser ? (state.currentUser.code || "").toString().trim().toUpperCase() : "";
 
     // 1. Sprawdzenie w aktualnie załadowanych ustawieniach ze słownika Stanów
     if (status && state.settings && state.settings.stan && Array.isArray(state.settings.stan.rows)) {
@@ -2839,6 +2889,14 @@ function getSpineColorForGame(game) {
             return rowStan === status;
         });
         if (matchingRow) {
+            // Najpierw szukamy kolumny dedykowanej dla aktualnego gracza (np. "Kolor MM", "Kolor NK")
+            if (userCode) {
+                const userKey = Object.keys(matchingRow).find(k => k.toLowerCase() === `kolor ${userCode.toLowerCase()}`);
+                if (userKey && matchingRow[userKey] && matchingRow[userKey].toString().trim()) {
+                    return matchingRow[userKey].toString().trim();
+                }
+            }
+            // Fallback do ogólnej kolumny "Kolor"
             const rawCol = matchingRow["Kolor"] || matchingRow["kolor"] || matchingRow["Color"];
             if (rawCol && rawCol.toString().trim()) {
                 return rawCol.toString().trim();
@@ -2964,7 +3022,7 @@ function renderChecklist(containerId, items, selectedSet, labelId, prefix) {
     container.innerHTML = "";
 
     if (items.length === 0) {
-        container.innerHTML = '<span style="font-size:12px; color:var(--color-text-muted); padding:4px;">Brak opcji</span>';
+        container.innerHTML = '<span style="font-size:14px; color:var(--color-text-muted); padding:4px;">Brak opcji</span>';
         return;
     }
 
@@ -3047,15 +3105,10 @@ function checkAdminStatusForUser(user) {
     try {
         const userSheet = user ? user.sheetName : (state.currentUser ? state.currentUser.sheetName : "Baza gier MM");
         const authMap = JSON.parse(localStorage.getItem("nkmm_auth_map") || "{}");
-        const masterPass = localStorage.getItem(CACHE_KEYS.ADMIN_AUTH);
 
         if (authMap[userSheet]) {
             state.isAdmin = true;
             state.adminPassword = authMap[userSheet];
-        } else if (masterPass === "stopki") {
-            // Hasło głównej bazy MM ("stopki") ma uprawnienia nadrzędne do wszystkich baz
-            state.isAdmin = true;
-            state.adminPassword = masterPass;
         } else {
             state.isAdmin = false;
             state.adminPassword = "";
@@ -3067,8 +3120,33 @@ function checkAdminStatusForUser(user) {
     applyAdminUiState();
 }
 
+function openAdminLoginModal() {
+    const select = document.getElementById("adminUserSelect");
+    const passInput = document.getElementById("adminPasswordInput");
+    const errorDiv = document.getElementById("adminLoginError");
+
+    if (errorDiv) errorDiv.style.display = "none";
+    if (passInput) passInput.value = "";
+
+    if (select) {
+        select.innerHTML = "";
+        state.users.forEach(u => {
+            const opt = document.createElement("option");
+            opt.value = u.sheetName;
+            opt.textContent = u.name || u.sheetName;
+            if (state.currentUser && state.currentUser.sheetName === u.sheetName) {
+                opt.selected = true;
+            }
+            select.appendChild(opt);
+        });
+    }
+
+    openModal("adminLoginModal");
+}
+
 async function handleAdminLogin(e) {
     e.preventDefault();
+    const select = document.getElementById("adminUserSelect");
     const passInput = document.getElementById("adminPasswordInput");
     const errorDiv = document.getElementById("adminLoginError");
     const submitBtn = document.getElementById("btnSubmitAdminLogin");
@@ -3078,34 +3156,35 @@ async function handleAdminLogin(e) {
     submitBtn.textContent = "Weryfikacja...";
 
     const enteredPass = passInput.value.trim();
-    const currentSheet = state.currentUser ? state.currentUser.sheetName : "Baza gier MM";
+    const selectedSheet = (select && select.value) ? select.value.trim() : (state.currentUser ? state.currentUser.sheetName : "Baza gier MM");
 
     try {
-        const response = await sendApiRequest({ action: "verifyAuth", user: currentSheet }, enteredPass);
+        const response = await sendApiRequest({ action: "verifyAuth", user: selectedSheet }, enteredPass);
 
-        const isAuthorized = response.status === "success" || 
-            (response.status === "error" && response.message && !response.message.includes("Brak autoryzacji") && response.message.includes("Nieznana akcja"));
+        const isAuthorized = response.status === "success" && response.data && response.data.authorized;
 
         if (isAuthorized) {
-            state.isAdmin = true;
-            state.adminPassword = enteredPass;
-            try {
-                const authMap = JSON.parse(localStorage.getItem("nkmm_auth_map") || "{}");
-                authMap[currentSheet] = enteredPass;
-                localStorage.setItem("nkmm_auth_map", JSON.stringify(authMap));
+            // Zapisujemy hasło tylko dla konkretnego użytkownika / bazy
+            const authMap = JSON.parse(localStorage.getItem("nkmm_auth_map") || "{}");
+            authMap[selectedSheet] = enteredPass;
+            localStorage.setItem("nkmm_auth_map", JSON.stringify(authMap));
 
-                if (enteredPass === "stopki") {
-                    localStorage.setItem(CACHE_KEYS.ADMIN_AUTH, enteredPass);
-                }
-            } catch (e) {}
+            // Jeśli logujemy się do innej bazy niż bieżąca, przełączamy na tę bazę
+            const targetUser = state.users.find(u => u.sheetName === selectedSheet);
+            if (targetUser && (!state.currentUser || state.currentUser.sheetName !== selectedSheet)) {
+                switchUserProfile(targetUser);
+            } else {
+                state.isAdmin = true;
+                state.adminPassword = enteredPass;
+                applyAdminUiState();
+                renderGamesGrid();
+                updateProfileBanner();
+            }
 
             closeModal("adminLoginModal");
             passInput.value = "";
-            applyAdminUiState();
-            renderGamesGrid();
-            updateProfileBanner();
         } else {
-            errorDiv.textContent = "Błędne hasło dostępu dla wybranej bazy!";
+            errorDiv.textContent = (response && response.message) ? response.message : "Błędne hasło dostępu dla wybranej bazy!";
             errorDiv.style.display = "block";
         }
     } catch (err) {
@@ -3125,7 +3204,6 @@ function handleAdminLogout() {
         const authMap = JSON.parse(localStorage.getItem("nkmm_auth_map") || "{}");
         delete authMap[currentSheet];
         localStorage.setItem("nkmm_auth_map", JSON.stringify(authMap));
-        localStorage.removeItem(CACHE_KEYS.ADMIN_AUTH);
     } catch (e) {}
     applyAdminUiState();
     renderGamesGrid();
@@ -3208,14 +3286,10 @@ function openGameEditModal(game = null) {
     const previewBox = document.getElementById("formCoverPreviewBox");
     const previewImg = document.getElementById("formCoverPreviewImg");
 
-    populateSelectOptionsForForm();
-
     if (game) {
         document.getElementById("gameEditModalTitle").textContent = "Edytuj grę";
         document.getElementById("formGameId").value = game.id || "";
         document.getElementById("formGameTitle").value = game["Tytuł"] || "";
-        document.getElementById("formGameStatus").value = game["Stan"] || "";
-        document.getElementById("formGamePlatform").value = game["Platforma"] || "";
         document.getElementById("formRatingFabuła").value = game["Ocena fabuły"] !== undefined ? game["Ocena fabuły"] : "";
         document.getElementById("formRatingGrafika").value = game["Ocena grafiki"] !== undefined ? game["Ocena grafiki"] : "";
         document.getElementById("formRatingMechanika").value = game["Ocena mechanik"] !== undefined ? game["Ocena mechanik"] : "";
@@ -3248,8 +3322,12 @@ function openGameEditModal(game = null) {
         document.getElementById("formCollections").value = "";
     }
 
-    // Aktualizacja podglądu pastelowego grzbietu na podstawie stanu gry
-    updateFormColorPreview(game ? (game["Tytuł"] || "") : "");
+    populateSelectOptionsForForm();
+
+    if (game) {
+        document.getElementById("formGameStatus").value = game["Stan"] || "";
+        document.getElementById("formGamePlatform").value = game["Platforma"] || "";
+    }
 
     // Zapisanie migawki początkowego stanu formularza do wykrywania niezapisanych zmian
     state.formInitialSnapshot = getGameFormSnapshot();
@@ -3375,8 +3453,8 @@ function populateSelectOptionsForForm() {
         badge.style.borderColor = col.border;
         badge.style.color = col.text;
         badge.style.cursor = "pointer";
-        badge.style.fontSize = "12px";
-        badge.style.padding = "3px 8px";
+        badge.style.fontSize = "14px";
+        badge.style.padding = "4px 10px";
         badge.style.borderRadius = "4px";
         badge.textContent = tag;
 
@@ -3468,7 +3546,12 @@ function handleGameFormSubmit(e) {
     // OPTYMISTYCZNA AKTUALIZACJA
     if (isEdit) {
         const idx = state.games.findIndex(g => String(g.id) === String(gameId));
-        if (idx !== -1) state.games[idx] = { ...state.games[idx], ...gameDetails };
+        if (idx !== -1) {
+            state.games[idx] = { ...state.games[idx], ...gameDetails };
+            if (state.selectedGame && String(state.selectedGame.id) === String(gameId)) {
+                state.selectedGame = state.games[idx];
+            }
+        }
     } else {
         state.games.unshift(gameDetails);
     }
@@ -3477,6 +3560,9 @@ function handleGameFormSubmit(e) {
     updateProfileBanner();
     populateFilterOptions();
     renderGamesGrid();
+    if (state.selectedGame) {
+        renderMonitorGameDetails(state.selectedGame);
+    }
     state.formInitialSnapshot = null;
     closeModal("gameEditModal");
 
@@ -3502,6 +3588,10 @@ function handleGameFormSubmit(e) {
                     }
                     if (res.data && res.data.coverUrl) {
                         targetGame["Obraz"] = res.data.coverUrl;
+                    }
+                    if (state.selectedGame && String(state.selectedGame.id) === String(targetGame.id)) {
+                        state.selectedGame = targetGame;
+                        renderMonitorGameDetails(state.selectedGame);
                     }
                     setCachedGames(currentSheet, state.games);
                     renderGamesGrid();
@@ -3650,17 +3740,22 @@ function handleAddUserSubmit(e) {
     e.preventDefault();
     if (!state.isAdmin) return;
 
-    const userName = document.getElementById("newUserName").value.trim();
     const userCode = document.getElementById("newUserCode").value.trim().toUpperCase();
     const userColor = document.getElementById("newUserColor").value;
 
+    if (!userCode) {
+        alert("Podaj inicjały gracza (np. MM, NK, PW).");
+        return;
+    }
+
+    const sheetName = `Baza gier ${userCode}`;
     const previousUsers = [...state.users];
 
     const newUser = {
         code: userCode,
-        name: `${userName} (${userCode})`,
-        sheetName: `Baza gier ${userCode}`,
-        avatar: "assets/matthewmill.PNG",
+        name: sheetName,
+        sheetName: sheetName,
+        avatar: getUserAvatarPath(sheetName),
         color: userColor,
         hoverColor: userColor
     };
@@ -3673,7 +3768,7 @@ function handleAddUserSubmit(e) {
 
     const apiParams = {
         action: "addUser",
-        userName: userName,
+        userName: sheetName,
         userCode: userCode,
         tabColor: userColor
     };
@@ -3773,7 +3868,7 @@ function renderUsersSettingsTable() {
     state.users.forEach(u => {
         html += `
             <tr>
-                <td><img src="${u.avatar}" alt="${u.code}" class="mini-avatar" onerror="this.src='assets/matthewmill.PNG'"></td>
+                <td><img src="${u.avatar}" alt="${u.code}" class="mini-avatar" onerror="this.src='assets/icon.jpg'"></td>
                 <td><strong>${escapeHtml(u.code)}</strong></td>
                 <td>${escapeHtml(u.name)}</td>
                 <td>${escapeHtml(u.sheetName)}</td>
@@ -3793,12 +3888,12 @@ function renderTable(containerId, tableData, category = null) {
         return;
     }
 
-    // Filtrujemy nagłówki - w Ustawieniach wyświetlamy TYLKO kolumny konfiguracyjne (Lp, Nazwa, Kolor, Opis), ukrywając kolumny statystyczne graczy
+    // Filtrujemy nagłówki - w Ustawieniach wyświetlamy kolumny konfiguracyjne (Lp, Nazwa, Kolor/Kolory użytkowników, Opis), ukrywając kolumny liczników/godzin graczy
     let displayedHeaders = tableData.headers;
     if (category) {
         displayedHeaders = tableData.headers.filter(h => {
             const low = h.toLowerCase();
-            if (h.startsWith(category + " ") || low.includes("godziny na platformę") || low.includes("stan ") || low.includes("kolekcje ") || low.includes("platformy ")) {
+            if (low.startsWith(category.toLowerCase() + " ") || low.includes("godziny na platformę") || low.includes("stan ") || low.includes("kolekcje ") || low.includes("platformy ")) {
                 return false;
             }
             return true;
@@ -3815,19 +3910,21 @@ function renderTable(containerId, tableData, category = null) {
     html += "</tr></thead><tbody>";
 
     const descColName = category === "Stan" ? "Opis stanu" : (category === "Kolekcje" ? "Opis kolekcji" : null);
+    const currentUserCode = state.currentUser ? (state.currentUser.code || "").toString().trim().toUpperCase() : "";
 
     tableData.rows.forEach(row => {
         html += "<tr>";
         displayedHeaders.forEach(h => {
             const val = row[h] !== undefined && row[h] !== null ? row[h] : "";
-            if (h === "Kolor" && val) {
+            const isColorCol = h.toLowerCase().startsWith("kolor") || h.toLowerCase().startsWith("color");
+            if (isColorCol && val) {
                 const hexVal = String(val).trim();
                 const pastel = toPastelSpineColor(hexVal);
                 html += `
                     <td>
                         <div style="display:flex; align-items:center; gap:6px;">
                             <span style="display:inline-block; width:16px; height:16px; border-radius:3px; background-color:${pastel}; border:1px solid rgba(255,255,255,0.25); box-shadow:0 1px 3px rgba(0,0,0,0.5);"></span>
-                            <span style="font-family:monospace; font-size:12px;">${escapeHtml(hexVal)}</span>
+                            <span style="font-family:monospace; font-size:14px;">${escapeHtml(hexVal)}</span>
                         </div>
                     </td>
                 `;
@@ -3839,7 +3936,15 @@ function renderTable(containerId, tableData, category = null) {
         if (state.isAdmin && category) {
             const primaryVal = row[category] || "";
             const descVal = descColName ? (row[descColName] || "") : "";
-            const colorVal = row["Kolor"] || "";
+            // Pobranie koloru dla aktualnego gracza lub z kolumny Kolor
+            let colorVal = "";
+            if (currentUserCode && row[`Kolor ${currentUserCode}`]) {
+                colorVal = row[`Kolor ${currentUserCode}`];
+            } else if (currentUserCode && row[`kolor ${currentUserCode.toLowerCase()}`]) {
+                colorVal = row[`kolor ${currentUserCode.toLowerCase()}`];
+            } else {
+                colorVal = row["Kolor"] || row["kolor"] || "";
+            }
             html += `
                 <td style="text-align: center; width: 36px; position: relative;">
                     <div class="table-menu-container">
@@ -3905,6 +4010,7 @@ function handleSaveEditSetting(e) {
     const newDesc = document.getElementById("editSettingNewDesc").value.trim();
     const newColorInput = document.getElementById("editSettingNewColor");
     const newColor = newColorInput ? newColorInput.value.trim() : "";
+    const currentUserCode = state.currentUser ? (state.currentUser.code || "").toString().trim().toUpperCase() : "";
 
     if (!newValue) {
         alert("Wartość nie może być pusta.");
@@ -3927,7 +4033,12 @@ function handleSaveEditSetting(e) {
                     r[descColName] = newDesc;
                 }
                 if (category === "Stan") {
-                    r["Kolor"] = newColor;
+                    if (currentUserCode) {
+                        r[`Kolor ${currentUserCode}`] = newColor;
+                    }
+                    if (r["Kolor"] !== undefined || !currentUserCode) {
+                        r["Kolor"] = newColor;
+                    }
                 }
             }
         });
@@ -3952,7 +4063,9 @@ function handleSaveEditSetting(e) {
         oldValue: oldValue,
         newValue: newValue,
         newDescription: newDesc,
-        newColor: newColor
+        newColor: newColor,
+        user: state.currentUser ? state.currentUser.sheetName : "",
+        userCode: currentUserCode
     };
 
     enqueueSyncTask(
@@ -3998,6 +4111,7 @@ function handleAddSetting(category, inputValId, inputDescId = null, inputColorId
     const val = valInput ? valInput.value.trim() : "";
     const desc = descInput ? descInput.value.trim() : "";
     const colorVal = colorInput ? colorInput.value.trim() : "";
+    const currentUserCode = state.currentUser ? (state.currentUser.code || "").toString().trim().toUpperCase() : "";
 
     if (!val) {
         alert("Podaj wartość do dodania.");
@@ -4022,6 +4136,8 @@ function handleAddSetting(category, inputValId, inputDescId = null, inputColorId
                 newRow[h] = val;
             } else if (h === "Kolor") {
                 newRow[h] = colorVal;
+            } else if (currentUserCode && h.toLowerCase() === `kolor ${currentUserCode.toLowerCase()}`) {
+                newRow[h] = colorVal;
             } else if (h === `Opis ${category.toLowerCase()}` || h === "Opis" || h.includes("Opis")) {
                 newRow[h] = desc;
             } else {
@@ -4040,7 +4156,9 @@ function handleAddSetting(category, inputValId, inputDescId = null, inputColorId
         category: category,
         value: val,
         description: desc,
-        color: colorVal
+        color: colorVal,
+        user: state.currentUser ? state.currentUser.sheetName : "",
+        userCode: currentUserCode
     };
 
     enqueueSyncTask(
@@ -4088,7 +4206,8 @@ window.handleDeleteSettingItem = function(category, value) {
     const apiParams = {
         action: "deleteSettingsItem",
         category: category,
-        value: value
+        value: value,
+        user: state.currentUser ? state.currentUser.sheetName : ""
     };
 
     enqueueSyncTask(
@@ -4121,7 +4240,10 @@ function openModal(modalId) {
     const modal = document.getElementById(modalId);
     if (modal) {
         modal.style.display = "flex";
-        document.body.classList.add("modal-open");
+        // Pop-up szczegółów gry (gameDetailsModal) nie blokuje/chowa scrolla strony
+        if (modalId !== "gameDetailsModal") {
+            document.body.classList.add("modal-open");
+        }
     }
 }
 
@@ -4130,7 +4252,7 @@ function closeModal(modalId) {
     if (modal) {
         modal.style.display = "none";
     }
-    const hasOpenModals = Array.from(document.querySelectorAll(".modal-backdrop")).some(m => m.style.display !== "none" && m.style.display !== "");
+    const hasOpenModals = Array.from(document.querySelectorAll(".modal-backdrop")).some(m => m.id !== "gameDetailsModal" && m.style.display !== "none" && m.style.display !== "");
     const isDrawerOpen = document.getElementById("mobileNavDrawer") && document.getElementById("mobileNavDrawer").style.display !== "none" && document.getElementById("mobileNavDrawer").style.display !== "";
     if (!hasOpenModals && !isDrawerOpen) {
         document.body.classList.remove("modal-open");
@@ -4156,4 +4278,41 @@ function escapeHtml(str) {
         .replace(/>/g, "&gt;")
         .replace(/"/g, "&quot;")
         .replace(/'/g, "&#039;");
+}
+
+// ===================================================
+// DYNAMICZNE POZYCJONOWANIE OBRAZU (v2.3)
+// ===================================================
+
+function updateMonitorScrollPosition() {
+    const monitor = document.querySelector(".shelf-sidebar-monitor");
+    if (!monitor) return;
+
+    if (window.innerWidth <= 768) {
+        monitor.style.position = "";
+        monitor.style.top = "";
+        monitor.style.width = "";
+        return;
+    }
+
+    const scrollY = window.scrollY || window.pageYOffset || 0;
+
+    // Reguła:
+    // Scroll Y od 0 do 264 px: obraz przyklejony do strony (w naturalnej pozycji na stronie)
+    // Scroll Y > 264 px: obraz przyklejony do ekranu w pozycji w której się znalazł (top: 134 px)
+    if (scrollY >= 264) {
+        monitor.style.position = "fixed";
+        monitor.style.top = "134px";
+        monitor.style.width = "396px";
+    } else {
+        monitor.style.position = "relative";
+        monitor.style.top = "0px";
+        monitor.style.width = "100%";
+    }
+}
+
+function initMonitorScrollBehavior() {
+    window.addEventListener("scroll", updateMonitorScrollPosition, { passive: true });
+    window.addEventListener("resize", updateMonitorScrollPosition, { passive: true });
+    updateMonitorScrollPosition();
 }

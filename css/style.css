@@ -362,7 +362,7 @@ body.modal-open {
 }
 
 .dropdown-caret {
-    font-size: 10px;
+    font-size: 14px;
     color: var(--color-text-muted);
     margin-left: 4px;
 }
@@ -558,9 +558,16 @@ body.modal-open {
     align-items: center;
     justify-content: center;
     overflow: hidden;
-    min-height: 100vh;
+    min-height: 0;
+    width: 100%;
     background-color: var(--color-bg);
     padding: 20px;
+}
+
+body.screen-welcome {
+    height: 100vh;
+    max-height: 100vh;
+    overflow: hidden;
 }
 
 .welcome-center-box {
@@ -655,6 +662,14 @@ body.modal-open {
 }
 
 .profile-info-block {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    width: 100%;
+}
+
+.profile-info-user {
     display: flex;
     align-items: center;
     gap: 12px;
@@ -822,7 +837,7 @@ body.modal-open {
 
 .dashboard-tabs-bar .main-tab-btn {
     font-family: var(--font-family-main);
-    font-size: 13px;
+    font-size: 14px;
     font-weight: bold;
     padding: 7px 16px;
     background-color: var(--color-bg);
@@ -1007,7 +1022,7 @@ body.modal-open {
 .filter-active-count {
     background-color: var(--color-primary);
     color: #ffffff;
-    font-size: 10px;
+    font-size: 14px;
     font-weight: bold;
     border-radius: 8px;
     padding: 1px 5px;
@@ -1074,7 +1089,7 @@ body.modal-open {
 .filter-badge {
     background-color: var(--color-primary);
     color: #ffffff;
-    font-size: 11px;
+    font-size: 14px;
     font-weight: bold;
     padding: 1px 6px;
     border-radius: 10px;
@@ -1161,13 +1176,13 @@ body.modal-open {
    SIATKA PÓŁEK I MONITOR INFORMACYJNY (WERSJA 2.0)
    =================================================== */
 
-/* LEWA KOLUMNA: MONITOR INFORMACYJNY (PRZYKLEJONY DO KAMERY NA DOMYŚLNEJ WYSOKOŚCI) */
+/* LEWA KOLUMNA: MONITOR INFORMACYJNY (PRZYKLEJONY DO STRONY, REGULOWANY) */
 .shelf-sidebar-monitor {
     width: 100%;
     display: flex;
     justify-content: center;
-    position: sticky;
-    top: 400px;
+    position: relative;
+    top: 0px;
     z-index: 40;
     align-self: flex-start;
 }
@@ -1207,6 +1222,76 @@ body.modal-open {
     gap: 10px;
     box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.6);
     box-sizing: border-box;
+    scrollbar-width: thin;
+    scrollbar-color: #5a3821 #19120b;
+}
+
+/* Styl paska przewijania w ekranie obrazu dopasowany do barw ramy obrazu */
+.mc-monitor-screen::-webkit-scrollbar {
+    width: 8px;
+}
+
+.mc-monitor-screen::-webkit-scrollbar-track {
+    background: #19120b;
+    border-left: 1px solid #140d07;
+}
+
+.mc-monitor-screen::-webkit-scrollbar-thumb {
+    background-color: #5a3821;
+    border: 1px solid #2a1a0f;
+    border-radius: 2px;
+}
+
+.mc-monitor-screen::-webkit-scrollbar-thumb:hover {
+    background-color: #7a4d2e;
+}
+
+/* Przylegający dodatkowy element z przyciskami pod obrazem z taką samą ramką */
+.mc-monitor-actions {
+    display: flex;
+    gap: 6px;
+    width: 342px;
+    margin: -3px auto 0 auto;
+    box-sizing: border-box;
+}
+
+.monitor-ext-btn {
+    flex: 1;
+    height: 36px;
+    min-height: 36px;
+    background-color: #F5E6D3;
+    border: 4px solid #7f4040;
+    border-radius: 0 0 4px 4px;
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.5);
+    color: #4a2424;
+    font-size: 14px;
+    font-weight: bold;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: filter var(--transition-fast), transform var(--transition-fast), background-color var(--transition-fast);
+}
+
+.monitor-ext-btn:hover:not(:disabled) {
+    background-color: #ffffff;
+    filter: brightness(1.05);
+    transform: translateY(1px);
+}
+
+.monitor-ext-btn:disabled {
+    cursor: default;
+    pointer-events: none;
+    opacity: 0.85;
+}
+
+/* Gdy gra nie jest wybrana - napis nie jest wyświetlany */
+.monitor-ext-btn:disabled span {
+    display: none;
+}
+
+.monitor-ext-btn span {
+    text-shadow: none;
 }
 
 .monitor-empty-state {
@@ -1316,7 +1401,7 @@ body.modal-open {
 }
 
 .monitor-score-label {
-    font-size: 12px;
+    font-size: 14px;
     font-weight: bold;
     color: var(--color-text-muted);
 }
@@ -1345,18 +1430,18 @@ body.modal-open {
 }
 
 .subscore-name {
-    font-size: 10px;
+    font-size: 14px;
     color: var(--color-text-muted);
 }
 
 .subscore-num {
-    font-size: 12px;
+    font-size: 14px;
     font-weight: bold;
     color: var(--color-text-main);
 }
 
 .monitor-section-title {
-    font-size: 11px;
+    font-size: 14px;
     font-weight: bold;
     color: var(--color-text-muted);
     margin-bottom: 2px;
@@ -1368,7 +1453,7 @@ body.modal-open {
 }
 
 .monitor-review-text {
-    font-size: 12px;
+    font-size: 14px;
     line-height: 1.4;
     color: #edf2f7;
     background: rgba(0, 0, 0, 0.25);
@@ -1391,7 +1476,7 @@ body.modal-open {
 .monitor-admin-panel button {
     flex: 1;
     padding: 5px 8px;
-    font-size: 12px;
+    font-size: 14px;
 }
 
 /* PRAWA KOLUMNA: OBSZAR PÓŁEK */
@@ -1431,7 +1516,7 @@ body.modal-open {
     border: 1px solid #4a596e;
     padding: 3px 18px;
     border-radius: 12px;
-    font-size: 13px;
+    font-size: 14px;
     font-weight: bold;
     color: #f0f6fc;
     letter-spacing: 0.5px;
@@ -1623,7 +1708,7 @@ body.modal-open {
     white-space: nowrap;
     overflow: hidden;
     text-overflow: clip;
-    font-size: 12px;
+    font-size: 14px;
     font-weight: bold;
     letter-spacing: 0.3px;
     color: #ffffff;
@@ -1693,7 +1778,7 @@ body.modal-open {
 .game-spine-text-horiz {
     writing-mode: horizontal-tb;
     transform: none;
-    font-size: 12px;
+    font-size: 14px;
     font-weight: bold;
     letter-spacing: 0.3px;
     color: #ffffff;
@@ -2105,7 +2190,7 @@ body.modal-open {
     align-items: center;
     justify-content: flex-end;
     padding-right: 4px;
-    font-size: 11px;
+    font-size: 14px;
     font-weight: bold;
     color: #ffffff;
 }
@@ -2174,7 +2259,7 @@ body.modal-open {
 }
 
 .chart-single-bar-val {
-    font-size: 11px;
+    font-size: 14px;
     color: var(--color-text-muted);
     font-weight: bold;
     flex-shrink: 0;
@@ -2214,7 +2299,7 @@ body.modal-open {
 }
 
 .donut-center-title {
-    font-size: 11px;
+    font-size: 14px;
     color: var(--color-text-muted);
     white-space: nowrap;
     overflow: hidden;
@@ -2229,7 +2314,7 @@ body.modal-open {
 }
 
 .donut-center-sub {
-    font-size: 11px;
+    font-size: 14px;
     color: var(--color-primary);
     font-weight: bold;
 }
@@ -2275,7 +2360,7 @@ body.modal-open {
 
 .chart-axis-label {
     fill: var(--color-text-muted);
-    font-size: 11px;
+    font-size: 14px;
     font-family: inherit;
 }
 
@@ -2319,7 +2404,7 @@ body.modal-open {
 .chart-tooltip-header {
     font-weight: bold;
     color: var(--color-text-main);
-    font-size: 13px;
+    font-size: 14px;
     margin-bottom: 6px;
     border-bottom: 1px solid var(--color-border-subtle);
     padding-bottom: 4px;
@@ -2331,7 +2416,7 @@ body.modal-open {
 .chart-tooltip-close {
     cursor: pointer;
     color: var(--color-text-muted);
-    font-size: 12px;
+    font-size: 14px;
     margin-left: 8px;
 }
 
@@ -2584,6 +2669,18 @@ body.modal-open {
     width: 100%;
 }
 
+/* Wyłączenie strzałek góra/dół w polach numerycznych */
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+
+input[type="number"] {
+    -moz-appearance: textfield;
+    appearance: textfield;
+}
+
 .form-input-inline {
     font-family: var(--font-family-main);
     font-size: var(--font-size-base);
@@ -2723,7 +2820,7 @@ body.modal-open {
     border: none;
     color: var(--color-text-main);
     font-family: var(--font-family-main);
-    font-size: 13px;
+    font-size: 14px;
     text-align: left;
     padding: 6px 10px;
     border-radius: 3px;
@@ -2819,7 +2916,7 @@ body.modal-open {
         min-height: 32px;
         height: 32px;
         padding: 4px 10px;
-        font-size: 13px;
+        font-size: 14px;
         white-space: nowrap;
         display: inline-flex;
         align-items: center;
@@ -2869,7 +2966,7 @@ body.modal-open {
         flex: 1;
         justify-content: center;
         text-align: center;
-        font-size: 13px;
+        font-size: 14px;
         padding: 7px 10px;
     }
 
@@ -2913,7 +3010,7 @@ body.modal-open {
         width: 100%;
         max-width: 100%;
         padding: 6px 8px;
-        font-size: 12px;
+        font-size: 14px;
         height: 36px;
     }
 
@@ -3061,7 +3158,7 @@ body.modal-open {
     }
 
     .ratings-form-row .rating-label {
-        font-size: 11px !important;
+        font-size: 14px !important;
         white-space: nowrap !important;
         overflow: hidden !important;
         text-overflow: ellipsis !important;
@@ -3076,7 +3173,7 @@ body.modal-open {
 
     .ratings-form-row .rating-input {
         padding: 6px 2px !important;
-        font-size: 13px !important;
+        font-size: 14px !important;
         text-align: center !important;
     }
 
@@ -3133,7 +3230,7 @@ body.modal-open {
     .modal-footer button {
         min-height: 38px;
         padding: 6px 14px;
-        font-size: 13px;
+        font-size: 14px;
     }
 
     /* Optymalizacja wykresów pod ekrany telefonów (brak poziomego scrolla) */
@@ -3172,7 +3269,7 @@ body.modal-open {
 
     .chart-controls-bar .chart-select {
         flex: 1;
-        font-size: 12px;
+        font-size: 14px;
         padding: 5px 6px;
     }
 
@@ -3191,7 +3288,7 @@ body.modal-open {
     }
 
     .chart-bar-label {
-        font-size: 13px;
+        font-size: 14px;
         margin-bottom: 2px;
         white-space: normal;
         word-break: break-word;
@@ -3223,7 +3320,7 @@ body.modal-open {
     }
 
     .chart-single-bar-val {
-        font-size: 11px;
+        font-size: 14px;
         min-width: 20px;
         text-align: right;
         flex-shrink: 0;
@@ -3333,7 +3430,7 @@ body.modal-open {
     }
 
     .game-spine-text {
-        font-size: 13px;
+        font-size: 14px;
         max-height: 96px;
         padding-top: 6px;
         padding-bottom: 4px;
@@ -3349,7 +3446,7 @@ body.modal-open {
     }
 
     .game-spine-text-horiz {
-        font-size: 13px;
+        font-size: 14px;
         line-height: 32px;
         padding: 0 10px;
     }
@@ -3366,7 +3463,7 @@ body.modal-open {
 }
 
 .pastel-preview-label {
-    font-size: 11px;
+    font-size: 14px;
     color: var(--color-text-muted);
 }
 
@@ -3405,7 +3502,7 @@ body.modal-open {
 }
 
 .pastel-sample-box span {
-    font-size: 11px;
+    font-size: 14px;
     font-weight: bold;
     color: #ffffff;
     text-shadow: 1px 1px 1px #000000;
@@ -3413,4 +3510,25 @@ body.modal-open {
     overflow: hidden;
     text-overflow: ellipsis;
     z-index: 2;
+}
+
+/* ===================================================
+   STOPKA APLIKACJI (FOOTER)
+   =================================================== */
+
+.app-footer {
+    width: 100%;
+    background-color: var(--color-surface);
+    border-top: 1px solid var(--color-border);
+    padding: 12px 16px;
+    text-align: center;
+    margin-top: auto;
+    z-index: 50;
+}
+
+.footer-content {
+    max-width: 1200px;
+    margin: 0 auto;
+    font-size: 14px;
+    color: var(--color-text-muted);
 }
