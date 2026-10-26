@@ -1,4 +1,4 @@
-# NKMM Baza Gier — Wersja 2.3
+# NKMM Baza Gier — Wersja 2.4
 
 Osobisty rejestr rozgrywek, biblioteka gier oraz panel statystyk i porównań graczy. Nowoczesna, w pełni responsywna aplikacja webowa typu serverless, hostowana bezpłatnie na GitHub Pages, komunikująca się bezpośrednio z arkuszem Google Sheets jako bazą danych za pośrednictwem Google Apps Script.
 
@@ -34,44 +34,54 @@ Aplikacja działa w oparciu o architekturę bezserwerową:
 
 ---
 
-## Główne funkcjonalności (Wersja 2.3)
+## Główne funkcjonalności (Wersja 2.4)
 
 1. **Obsługa profili i dynamiczne arkusze**:
    * Przełączanie profili w czasie rzeczywistym z dedykowanymi motywami kolorystycznymi i awatarami graczy (`assets/[Nazwa bazy].PNG` z fallbackiem do `assets/icon.jpg`).
    * Dynamiczne dodawanie nowych graczy bez ingerencji w kod źródłowy – automatyczne tworzenie zakładki w Google Sheets oraz formuł we wszystkich arkuszach statystyk.
    * Ekran powitalny ze swobodnie rozmieszczonymi awatarami graczy, dopasowany do pełnej wysokości okna (100vh) bez scrolla.
 
-2. **Dedykowane hasła i autoryzacja per baza**:
+2. **Optymalizacja wydajności i płynności (Scroll 60 FPS)**:
+   * Wyeliminowanie przycinania przewijania (lagów) poprzez akcelerację sprzętową GPU dla kafelkowego tła (`will-change: transform`).
+   * Wirtualizacja renderowania półek za pomocą natywnego `content-visibility: auto`.
+   * Przeniesienie obliczeń pozycji monitora do pętli `requestAnimationFrame` z pasywnymi nasłuchiwaczami zdarzeń.
+
+3. **Dedykowany układ dla laptopów i zwijana gablota**:
+   * Stały 4-kolumnowy układ szafek z książkami na ekranach laptopowych (<= 1540px).
+   * Możliwość zwijania gabloty profilu wraz ze wszystkimi statystykami – na laptopach gablota jest domyślnie zwinięta, podnosząc punkt startowy monitora i eksponując zawartość półek.
+   * Zapamiętywanie stanu zwinięcia w `localStorage`.
+
+4. **Dedykowane hasła i autoryzacja per baza**:
    * Logowanie administratora przypisane bezpośrednio do konkretnej bazy gracza.
    * Backend weryfikujący poprawność hasła dla wybranego arkusza bez globalnego hasła głównego.
 
-3. **Indywidualne palety barw per gracz w arkuszu**:
+5. **Indywidualne palety barw per gracz w arkuszu**:
    * Każdy użytkownik posiada dedykowaną kolumnę kolorów stanów (np. `Kolor MM`, `Kolor NK`), odczytywaną bezpośrednio z backendu.
    * Kolorowanie grzbietów gier i etykiet dopasowane indywidualnie do aktywnego profilu.
 
-4. **Kolejka synchronizacji w tle i Optimistic UI**:
+6. **Kolejka synchronizacji w tle i Optimistic UI**:
    * Błyskawiczne dodawanie, edycja i usuwanie gier z natychmiastową aktualizacją interfejsu.
    * Kolejka synchronizacji utrwalana w pamięci lokalnej, automatycznie ponawiająca wysyłanie danych do arkusza po powrocie połączenia.
 
-5. **Wirtualna półka z grami i gablota (Showcase)**:
+7. **Wirtualna półka z grami i gablota (Showcase)**:
    * Trójwymiarowa prezentacja biblioteki w formie półek z grzbietami gier (układ pionowy, poziomy, miks, dynamiczny podgląd monitora z opisem i okładką).
    * Edytowalna gablota 8 wyróżnionych tytułów na profilu gracza w stylu platformy Steam.
    * Masowa i pojedyncza synchronizacja brakujących okładek za pośrednictwem RAWG API.
 
-6. **Interaktywne wykresy i statystyki (SVG)**:
+8. **Interaktywne wykresy i statystyki (SVG)**:
    * Porównanie stanów gier (wykres słupkowy).
    * Udział platform w bibliotece i w czasie gry (wykres kołowy / donut).
    * Oś czasu ukończeń gier w poszczególnych miesiącach i latach (wykres liniowy).
    * Rozkład i histogram ocen gier.
 
-7. **Zaawansowane wyszukiwanie i filtry**:
+9. **Zaawansowane wyszukiwanie i filtry**:
    * Błyskawiczne wyszukiwanie po tytule gry.
    * Filtry wielokrotnego wyboru dla Stanu, Platformy i Kolekcji/Tagów.
    * Sortowanie po tytule, ocenie, liczbie godzin oraz dacie ukończenia.
 
-8. **Pełna responsywność (Desktop & Mobile)**:
-   * Widok mobilny z dedykowaną szufladą boczną (drawer), nagłówkiem jednoliniowym oraz dopasowanymi modaliami.
-   * Bezpieczeństwo formularzy: ochrona przed utratą niezapisanych zmian przy przypadkowym zamknięciu okna.
+10. **Pełna responsywność (Desktop, Laptop & Mobile)**:
+    * Widok mobilny z dedykowaną szufladą boczną (drawer), nagłówkiem jednoliniowym oraz dopasowanymi modaliami.
+    * Bezpieczeństwo formularzy: ochrona przed utratą niezapisanych zmian przy przypadkowym zamknięciu okna.
 
 ---
 
@@ -88,15 +98,15 @@ NKMM Baza Gier/
 │   ├── Baza gier NK.PNG
 │   └── ...
 ├── css/
-│   └── style.css                # Kompletny arkusz stylów CSS (w tym reguły półki i stopki)
+│   └── style.css                # Kompletny arkusz stylów CSS (w tym reguły półki, laptopa i stopki)
 ├── js/
 │   └── app.js                   # Główna logika aplikacji, wykresy, Optimistic UI i obsługa API
 └── resources/
-    └── PolaczenieGithubPages.gs # Skrypt backendu Google Apps Script (v2.3)
+    └── PolaczenieGithubPages.gs # Skrypt backendu Google Apps Script
 ```
 
 ---
 
 ## Licencja i autorzy
 
-&copy; NKMM Baza Gier | Wersja 2.3. Projekt stworzony do użytku prywatnego.
+&copy; NKMM Baza Gier | Wersja 2.4. Projekt stworzony do użytku prywatnego.

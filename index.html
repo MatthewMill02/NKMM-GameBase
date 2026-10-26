@@ -147,9 +147,10 @@
 
                     <div class="showcase-and-stats-block">
                         <!-- GABLOTA WYRÓŻNIONYCH GIER (8 GIER) -->
-                        <div class="showcase-column">
+                        <div class="showcase-column" id="showcaseColumn">
                             <div class="showcase-header">
                                 <h3>Wyróżnione gry</h3>
+                                <button type="button" id="btnToggleShowcaseCollapse" class="btn-showcase-collapse" title="Zwiń / rozwiń gablotę">[Zwiń]</button>
                             </div>
                             <div id="showcaseShelfContainer" class="showcase-shelf-container">
                                 <!-- Ciemna szafka wyróżnionych gier generowana dynamicznie -->
@@ -182,7 +183,7 @@
                 </section>
 
                 <!-- 2. OBRAZ / MONITOR INFORMACYJNY (POD BELKĄ INFORMACJI) -->
-                <div class="shelf-sidebar-monitor">
+                <div class="shelf-sidebar-monitor" id="shelfSidebarMonitor">
                     <div class="mc-monitor-container" id="mcMonitorContainer">
                         <div class="mc-monitor-frame">
                             <div class="mc-monitor-screen" id="mcMonitorScreen"></div>
@@ -611,7 +612,7 @@
     <!-- STOPKA -->
     <footer class="app-footer" id="appFooter">
         <div class="footer-content">
-            <span>&copy; NKMM Baza Gier | Wersja 2.3</span>
+            <span>&copy; NKMM Baza Gier | Wersja 2.4</span>
         </div>
     </footer>
 

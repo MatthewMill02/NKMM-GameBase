@@ -63,11 +63,6 @@ body {
     font-size: var(--font-size-base);
     color: var(--color-text-main);
     background-color: #1a1510;
-    background-image: url('../assets/background.png');
-    background-repeat: repeat;
-    background-attachment: fixed;
-    background-size: auto;
-    image-rendering: pixelated;
     line-height: 1.5;
     min-height: 100vh;
     width: 100%;
@@ -75,6 +70,27 @@ body {
     display: flex;
     flex-direction: column;
     -webkit-tap-highlight-color: transparent;
+    position: relative;
+}
+
+/* Wydajne tło przyspieszane sprzętowo (GPU), eliminujące przycinanie (lagi) scrollowania */
+body::before {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    width: 100%;
+    height: 100%;
+    background-image: url('../assets/background.png');
+    background-repeat: repeat;
+    background-size: auto;
+    image-rendering: pixelated;
+    z-index: -1;
+    pointer-events: none;
+    transform: translateZ(0);
+    will-change: transform;
 }
 
 body.modal-open {
@@ -712,6 +728,7 @@ body.screen-welcome {
     display: flex;
     justify-content: space-between;
     align-items: center;
+    gap: 8px;
 }
 
 .showcase-header h3 {
@@ -721,10 +738,51 @@ body.screen-welcome {
     letter-spacing: 0.2px;
 }
 
+.btn-showcase-collapse {
+    background: transparent;
+    border: none;
+    color: var(--color-text-muted);
+    font-size: var(--font-size-xs);
+    font-family: var(--font-family-main);
+    cursor: pointer;
+    padding: 2px 6px;
+    border-radius: var(--radius-sm);
+    transition: color var(--transition-fast), background-color var(--transition-fast);
+}
+
+.btn-showcase-collapse:hover {
+    color: var(--color-text-main);
+    background-color: var(--color-surface-hover);
+}
+
 .showcase-shelf-container {
     display: flex;
     align-items: center;
     min-height: 216px;
+    transition: opacity 0.2s ease, max-height 0.25s ease;
+}
+
+/* Stan zwinięty gabloty: ukrycie półki gabloty oraz wszystkich statystyk profilu */
+.showcase-column.collapsed .showcase-shelf-container {
+    display: none !important;
+}
+
+.showcase-column.collapsed {
+    gap: 0;
+    width: 100%;
+}
+
+.showcase-and-stats-block.showcase-collapsed {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    margin: 0;
+    padding: 0;
+}
+
+.showcase-and-stats-block.showcase-collapsed .banner-vertical-divider,
+.showcase-and-stats-block.showcase-collapsed .profile-stats-vertical-grid {
+    display: none !important;
 }
 
 .game-shelf-unit.shelf-unit-showcase {
@@ -1185,6 +1243,7 @@ body.screen-welcome {
     top: 0px;
     z-index: 40;
     align-self: flex-start;
+    transition: opacity 0.2s ease, max-height 0.25s ease;
 }
 
 .mc-monitor-container {
@@ -1505,6 +1564,8 @@ body.screen-welcome {
     box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
     box-sizing: border-box;
     width: 100%;
+    content-visibility: auto;
+    contain-intrinsic-size: 280px;
 }
 
 .shelf-group-header {
@@ -2885,11 +2946,44 @@ input[type="number"] {
    RESPONSYWNOŚĆ I MOBILE-FIRST
    =================================================== */
 
-@media (max-width: 1400px) {
+/* EKRANY LAPTOPOWE (np. 1366x768, 1440x900, 1920x1080 ze skalowaniem systemowym 125%/150%) */
+@media (max-width: 1540px) {
+    .dashboard-main-layout {
+        gap: 12px;
+    }
+
+    /* Dokładnie 4 kolumny szafek z książkami w rzędzie na laptopach */
     .shelf-group-shelves-row {
-        grid-template-columns: repeat(auto-fit, minmax(216px, 1fr));
+        grid-template-columns: repeat(4, 216px);
+        justify-content: space-between;
+        gap: 12px;
+    }
+
+    .dashboard-left-column {
+        width: 370px;
+    }
+
+    .mc-monitor-container,
+    .mc-monitor-frame {
+        width: 330px;
+        height: 480px;
+    }
+
+    .mc-monitor-actions {
+        width: 322px;
+    }
+
+    .shelf-sidebar-monitor {
+        margin-top: 0;
+    }
+}
+
+/* W przypadku węższych laptopów / tabletów (poniżej 1260px) płynne dopasowanie 3-4 kolumn */
+@media (max-width: 1260px) and (min-width: 769px) {
+    .shelf-group-shelves-row {
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
         justify-content: start;
-        gap: 14px;
+        gap: 10px;
     }
 }
 

@@ -292,9 +292,27 @@ function initEvents() {
         }
     });
 
-    // Gablota - edycja
+    // Gablota - edycja oraz zwijanie
     document.getElementById("btnEditShowcase").addEventListener("click", openShowcaseEditModal);
     document.getElementById("btnSaveShowcase").addEventListener("click", handleSaveShowcase);
+
+    const btnToggleShowcaseCollapse = document.getElementById("btnToggleShowcaseCollapse");
+    if (btnToggleShowcaseCollapse) {
+        // Domyślnie zwinięta przy mniejszym rozmiarze okna (np. laptop <= 1540px), chyba że użytkownik manualnie to zmienił
+        const savedSetting = localStorage.getItem("nkmm_showcase_collapsed");
+        const defaultCollapsedForScreen = window.innerWidth <= 1540;
+        const isCollapsed = savedSetting !== null ? savedSetting === "true" : defaultCollapsedForScreen;
+        applyShowcaseCollapseState(isCollapsed);
+
+        btnToggleShowcaseCollapse.addEventListener("click", () => {
+            const showcaseCol = document.getElementById("showcaseColumn");
+            const currentlyCollapsed = showcaseCol ? showcaseCol.classList.contains("collapsed") : false;
+            const nextState = !currentlyCollapsed;
+            applyShowcaseCollapseState(nextState);
+            localStorage.setItem("nkmm_showcase_collapsed", String(nextState));
+            requestAnimationFrame(() => updateMonitorScrollPosition());
+        });
+    }
 
     const showcaseSearchInput = document.getElementById("showcaseSearchInput");
     if (showcaseSearchInput) {
@@ -987,6 +1005,9 @@ function showDashboardScreen() {
     document.getElementById("dashboardScreen").style.display = "block";
 
     switchMainTab(state.currentTab);
+    if (typeof checkMonitorAutoVisibility === "function") {
+        checkMonitorAutoVisibility();
+    }
     requestAnimationFrame(() => updateMonitorScrollPosition());
 }
 
@@ -1107,9 +1128,22 @@ function getTagColor(tagName) {
     return colorObj;
 }
 
-// ===================================================
-// GABLOTA WYRÓŻNIONYCH GIER (OPARTA NA TAGU "GABLOTA")
-// ===================================================
+function applyShowcaseCollapseState(collapsed) {
+    const showcaseCol = document.getElementById("showcaseColumn");
+    const showcaseBlock = document.querySelector(".showcase-and-stats-block");
+    const toggleBtn = document.getElementById("btnToggleShowcaseCollapse");
+
+    if (showcaseCol) {
+        showcaseCol.classList.toggle("collapsed", collapsed);
+    }
+    if (showcaseBlock) {
+        showcaseBlock.classList.toggle("showcase-collapsed", collapsed);
+    }
+    if (toggleBtn) {
+        toggleBtn.textContent = collapsed ? "[Rozwiń]" : "[Zwiń]";
+        toggleBtn.title = collapsed ? "Rozwiń gablotę wyróżnionych gier" : "Zwiń gablotę wyróżnionych gier";
+    }
+}
 
 function isGameInShowcase(game) {
     if (!game) return false;
@@ -4281,11 +4315,13 @@ function escapeHtml(str) {
 }
 
 // ===================================================
-// DYNAMICZNE POZYCJONOWANIE OBRAZU (v2.3)
+// DYNAMICZNE POZYCJONOWANIE OBRAZU / MONITORA (v2.3)
 // ===================================================
 
+let monitorScrollTicking = false;
+
 function updateMonitorScrollPosition() {
-    const monitor = document.querySelector(".shelf-sidebar-monitor");
+    const monitor = document.getElementById("shelfSidebarMonitor") || document.querySelector(".shelf-sidebar-monitor");
     if (!monitor) return;
 
     if (window.innerWidth <= 768) {
@@ -4296,14 +4332,20 @@ function updateMonitorScrollPosition() {
     }
 
     const scrollY = window.scrollY || window.pageYOffset || 0;
+    const showcaseCol = document.getElementById("showcaseColumn");
+    const isShowcaseCollapsed = showcaseCol ? showcaseCol.classList.contains("collapsed") : false;
 
-    // Reguła:
-    // Scroll Y od 0 do 264 px: obraz przyklejony do strony (w naturalnej pozycji na stronie)
-    // Scroll Y > 264 px: obraz przyklejony do ekranu w pozycji w której się znalazł (top: 134 px)
-    if (scrollY >= 264) {
+    // Gdy gablota jest zwinięta, monitor zaczyna się znacznie wyżej (ok. 50px zamiast 264px)
+    // Na laptopach (<= 1540px) szerokość lewej kolumny wynosi 370px, a monitora 330px
+    const isLaptop = window.innerWidth <= 1540;
+    const threshold = isShowcaseCollapsed ? 50 : (isLaptop ? 220 : 264);
+    const targetTop = isLaptop ? "70px" : "134px";
+    const targetWidth = isLaptop ? "370px" : "396px";
+
+    if (scrollY >= threshold) {
         monitor.style.position = "fixed";
-        monitor.style.top = "134px";
-        monitor.style.width = "396px";
+        monitor.style.top = targetTop;
+        monitor.style.width = targetWidth;
     } else {
         monitor.style.position = "relative";
         monitor.style.top = "0px";
@@ -4311,8 +4353,20 @@ function updateMonitorScrollPosition() {
     }
 }
 
+function handleMonitorScrollOptimized() {
+    if (!monitorScrollTicking) {
+        window.requestAnimationFrame(() => {
+            updateMonitorScrollPosition();
+            monitorScrollTicking = false;
+        });
+        monitorScrollTicking = true;
+    }
+}
+
 function initMonitorScrollBehavior() {
-    window.addEventListener("scroll", updateMonitorScrollPosition, { passive: true });
-    window.addEventListener("resize", updateMonitorScrollPosition, { passive: true });
+    window.addEventListener("scroll", handleMonitorScrollOptimized, { passive: true });
+    window.addEventListener("resize", () => {
+        handleMonitorScrollOptimized();
+    }, { passive: true });
     updateMonitorScrollPosition();
 }
