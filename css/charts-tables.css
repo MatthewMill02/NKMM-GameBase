@@ -1,0 +1,491 @@
+/* Sekcja wykresów i porównań */
+.charts-overview-container {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.chart-header-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid var(--color-border);
+    padding-bottom: 8px;
+    margin-bottom: 14px;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.chart-header-bar h3 {
+    font-size: var(--font-size-lg);
+    font-weight: bold;
+    color: var(--color-text-main);
+}
+
+.charts-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(420px, 1fr));
+    gap: 16px;
+}
+
+@media (max-width: 600px) {
+    .charts-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+.chart-card {
+    background-color: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    padding: 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.chart-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.chart-card-header h3 {
+    font-size: var(--font-size-lg);
+    color: var(--color-text-main);
+    margin-bottom: 2px;
+}
+
+.chart-controls-bar {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.chart-select {
+    background-color: var(--color-bg);
+    border: 1px solid var(--color-border);
+    color: var(--color-text-main);
+    padding: 4px 8px;
+    border-radius: var(--radius-sm);
+    font-size: var(--font-size-sm);
+    font-family: inherit;
+    cursor: pointer;
+}
+
+.chart-legend {
+    display: flex;
+    gap: 14px;
+    flex-wrap: wrap;
+    font-size: var(--font-size-xs);
+    color: var(--color-text-muted);
+}
+
+.legend-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.legend-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 2px;
+}
+
+.chart-bars-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-top: 6px;
+}
+
+.chart-interactive-item {
+    cursor: pointer;
+    transition: transform var(--transition-fast), filter var(--transition-fast), opacity var(--transition-fast);
+}
+
+.chart-interactive-item:hover,
+.chart-interactive-item:active {
+    filter: brightness(1.2);
+}
+
+.chart-dual-row {
+    display: grid;
+    grid-template-columns: 120px 1fr;
+    align-items: center;
+    gap: 10px;
+    font-size: var(--font-size-xs);
+    padding: 4px 6px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background-color var(--transition-fast);
+}
+
+.chart-dual-row:hover,
+.chart-dual-row:active {
+    background-color: var(--color-surface-hover);
+}
+
+@media (max-width: 480px) {
+    .chart-dual-row {
+        grid-template-columns: 90px 1fr;
+    }
+}
+
+.chart-bar-label {
+    font-weight: bold;
+    color: var(--color-text-main);
+}
+
+.chart-dual-bars {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    width: 100%;
+    min-width: 0;
+}
+
+.chart-single-bar-container {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    min-width: 0;
+}
+
+.chart-single-bar-track {
+    flex: 1;
+    min-width: 0;
+    height: 14px;
+    display: flex;
+    align-items: center;
+}
+
+.chart-single-bar-fill {
+    height: 100%;
+    border-radius: 2px;
+    transition: width 0.3s ease;
+}
+
+.chart-single-bar-val {
+    font-size: 14px;
+    color: var(--color-text-muted);
+    font-weight: bold;
+    flex-shrink: 0;
+    min-width: 22px;
+    text-align: right;
+}
+
+/* Wykres kołowy (Donut) */
+.donut-wrapper {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-around;
+    flex-wrap: wrap;
+    gap: 16px;
+    padding: 10px 0;
+}
+
+.donut-svg-box {
+    position: relative;
+    width: 190px;
+    height: 190px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.donut-center-info {
+    position: absolute;
+    text-align: center;
+    pointer-events: none;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    max-width: 110px;
+}
+
+.donut-center-title {
+    font-size: 14px;
+    color: var(--color-text-muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100px;
+}
+
+.donut-center-val {
+    font-size: 18px;
+    font-weight: bold;
+    color: var(--color-text-main);
+}
+
+.donut-center-sub {
+    font-size: 14px;
+    color: var(--color-primary);
+    font-weight: bold;
+}
+
+.donut-legend-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    max-height: 190px;
+    overflow-y: auto;
+    min-width: 150px;
+    flex: 1;
+}
+
+.donut-legend-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    font-size: var(--font-size-xs);
+    padding: 3px 6px;
+    border-radius: 3px;
+    cursor: pointer;
+    transition: background-color var(--transition-fast);
+}
+
+.donut-legend-item:hover,
+.donut-legend-item:active {
+    background-color: var(--color-bg);
+}
+
+/* Wykres liniowy (Line Chart SVG) */
+.line-chart-svg {
+    width: 100%;
+    height: 220px;
+    overflow: visible;
+}
+
+.chart-gridline {
+    stroke: var(--color-border-subtle);
+    stroke-dasharray: 3, 3;
+}
+
+.chart-axis-label {
+    fill: var(--color-text-muted);
+    font-size: 14px;
+    font-family: inherit;
+}
+
+.chart-line-path {
+    fill: none;
+    stroke-width: 3;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+.chart-data-point {
+    cursor: pointer;
+    transition: r 0.2s ease, fill 0.2s ease;
+}
+
+.chart-data-point:hover,
+.chart-data-point:active {
+    r: 7;
+    filter: drop-shadow(0 0 4px rgba(255, 255, 255, 0.4));
+}
+
+/* Tooltip wykresów */
+.chart-interactive-tooltip {
+    position: fixed;
+    z-index: 1050;
+    background-color: #1a1e24;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    padding: 10px 14px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.6);
+    pointer-events: auto;
+    max-width: 280px;
+    font-size: var(--font-size-xs);
+    display: none;
+}
+
+.chart-interactive-tooltip.active {
+    display: block;
+}
+
+.chart-tooltip-header {
+    font-weight: bold;
+    color: var(--color-text-main);
+    font-size: 14px;
+    margin-bottom: 6px;
+    border-bottom: 1px solid var(--color-border-subtle);
+    padding-bottom: 4px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.chart-tooltip-close {
+    cursor: pointer;
+    color: var(--color-text-muted);
+    font-size: 14px;
+    margin-left: 8px;
+}
+
+.chart-tooltip-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+    margin-top: 3px;
+    color: var(--color-text-muted);
+}
+
+.chart-tooltip-row strong {
+    color: #ffffff;
+}
+
+/* Tabele słowników w ustawieniach */
+.tabs-nav {
+    display: flex;
+    gap: 4px;
+    border-bottom: 1px solid var(--color-border);
+    margin-bottom: 14px;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+}
+
+.tab-btn {
+    font-family: var(--font-family-main);
+    font-size: var(--font-size-base);
+    padding: 8px 14px;
+    background: transparent;
+    border: none;
+    border-bottom: 2px solid transparent;
+    cursor: pointer;
+    color: var(--color-text-muted);
+    white-space: nowrap;
+}
+
+.tab-btn.active {
+    font-weight: bold;
+    color: var(--color-text-main);
+    border-bottom-color: var(--color-primary);
+}
+
+.tab-actions {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 12px;
+    flex-wrap: wrap;
+}
+
+.table-container {
+    overflow-x: auto;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+}
+
+.data-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: var(--font-size-sm);
+    text-align: left;
+}
+
+.data-table th, .data-table td {
+    padding: 8px 10px;
+    border-bottom: 1px solid var(--color-border);
+}
+
+.data-table th {
+    background-color: var(--color-bg);
+    font-weight: bold;
+    color: var(--color-text-main);
+}
+
+.data-table tr:hover {
+    background-color: var(--color-surface-hover);
+}
+
+.table-menu-container {
+    position: relative;
+    display: inline-block;
+}
+
+.btn-table-menu {
+    background: transparent;
+    border: 1px solid transparent;
+    color: var(--color-text-muted);
+    font-size: 18px;
+    line-height: 1;
+    width: 28px;
+    height: 28px;
+    border-radius: 4px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: background-color var(--transition-fast), color var(--transition-fast), border-color var(--transition-fast);
+}
+
+.btn-table-menu:hover,
+.table-menu-container.active .btn-table-menu {
+    background-color: var(--color-surface-hover);
+    color: var(--color-text-main);
+    border-color: var(--color-border);
+}
+
+.table-menu-dropdown {
+    display: none;
+    position: absolute;
+    right: 0;
+    top: calc(100% + 2px);
+    z-index: 100;
+    background-color: #1a1e24;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.6);
+    min-width: 100px;
+    padding: 4px;
+}
+
+.table-menu-container.active .table-menu-dropdown {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.table-menu-item {
+    background: transparent;
+    border: none;
+    color: var(--color-text-main);
+    font-family: var(--font-family-main);
+    font-size: 14px;
+    text-align: left;
+    padding: 6px 10px;
+    border-radius: 3px;
+    cursor: pointer;
+    transition: background-color var(--transition-fast), color var(--transition-fast);
+    width: 100%;
+    white-space: nowrap;
+}
+
+.table-menu-item:hover {
+    background-color: var(--color-surface-hover);
+}
+
+.table-menu-item-danger {
+    color: var(--color-danger);
+}
+
+.table-menu-item-danger:hover {
+    background-color: var(--color-danger-bg);
+}
+
+.empty-state {
+    text-align: center;
+    padding: 30px;
+    color: var(--color-text-muted);
+}

@@ -1,0 +1,61 @@
+/* Style bazowe, reset i tło strony */
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+html {
+    max-width: 100%;
+    overflow-x: hidden;
+}
+
+body {
+    font-family: var(--font-family-main);
+    font-size: var(--font-size-base);
+    color: var(--color-text-main);
+    background-color: #1a1510;
+    line-height: 1.5;
+    min-height: 100vh;
+    width: 100%;
+    max-width: 100%;
+    overflow-x: hidden;
+    padding-top: var(--header-height);
+    display: flex;
+    flex-direction: column;
+    -webkit-tap-highlight-color: transparent;
+    position: relative;
+}
+
+body::before {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    width: 100%;
+    height: 100%;
+    background-image: url('../assets/background.png');
+    background-repeat: repeat;
+    background-size: auto;
+    image-rendering: pixelated;
+    z-index: -1;
+    pointer-events: none;
+    transform: translateZ(0);
+    will-change: transform;
+}
+
+body.modal-open {
+    overflow: hidden !important;
+    touch-action: none;
+    overscroll-behavior: none;
+}
+
+.desktop-only {
+    display: flex !important;
+}
+
+.mobile-only {
+    display: none !important;
+}

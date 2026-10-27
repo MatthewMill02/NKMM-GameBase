@@ -1,0 +1,58 @@
+/* Globalne zmienne projektowe i tokeny stylów */
+:root {
+    /* Typografia */
+    --font-family-main: Arial, sans-serif;
+    --font-size-xs: 14px;
+    --font-size-sm: 14px;
+    --font-size-base: 14px;
+    --font-size-lg: 16px;
+    --font-size-xl: 18px;
+    --font-size-title: 22px;
+    --font-size-welcome: 28px;
+
+    /* Kolorystyka bazowa i powierzchnie */
+    --color-bg: #111418;
+    --color-surface: #1a1e24;
+    --color-surface-hover: #222730;
+    --color-surface-active: #2a313d;
+    --color-border: #262d37;
+    --color-border-subtle: #1e242c;
+    
+    /* Kolory tekstu */
+    --color-text-main: #e6edf3;
+    --color-text-muted: #8b949e;
+    --color-text-light: #6e7681;
+
+    /* Akcenty i interakcje */
+    --color-primary: #2a4365;
+    --color-primary-hover: #1e314b;
+    --color-secondary: #3b4453;
+    --color-secondary-hover: #4a5568;
+    
+    /* Oznaczenia statusów i ocen */
+    --color-badge-status: #222730;
+    --color-badge-status-text: #c9d1d9;
+    --color-badge-rating-bg: #161b22;
+    --color-badge-rating-text: #e6edf3;
+    
+    /* Kolory funkcyjne */
+    --color-danger: #e55353;
+    --color-danger-bg: rgba(229, 83, 83, 0.12);
+    --color-success: #2ea043;
+    --color-success-bg: rgba(46, 160, 67, 0.12);
+    --color-warning: #d29922;
+
+    /* Wymiary stałe elementów */
+    --header-height: 52px;
+    --header-height-mobile: 50px;
+
+    /* Zaokrąglenia rogów */
+    --radius-sm: 4px;
+    --radius-md: 6px;
+    --radius-lg: 8px;
+    --radius-round: 50%;
+
+    /* Płynne przejścia */
+    --transition-fast: 0.15s ease-in-out;
+    --transition-normal: 0.25s ease-in-out;
+}
