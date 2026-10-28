@@ -1,4 +1,4 @@
-# NKMM Baza Gier — Wersja 2.5
+# NKMM Baza Gier — Wersja 2.5.1
 
 Osobisty rejestr rozgrywek, biblioteka gier oraz panel statystyk i porównań graczy. Nowoczesna, w pełni responsywna aplikacja webowa typu serverless, hostowana bezpłatnie na GitHub Pages, komunikująca się bezpośrednio z arkuszem Google Sheets jako bazą danych za pośrednictwem Google Apps Script.
 
@@ -34,12 +34,12 @@ Aplikacja działa w oparciu o architekturę bezserwerową:
 
 ---
 
-## Główne funkcjonalności (Wersja 2.5)
+## Główne funkcjonalności (Wersja 2.5.1)
 
 1. **Paginacja stron biblioteki i dynamiczne kategorie**:
    * Zastąpienie długiego scrollowania stronami biblioteczek:
      * **Desktop**: 15 biblioteczek na stronę (siatka 5x3 = 120 gier na ekranie bez potrzeby przewijania).
-     * **Laptop (<= 1540px)**: 12 biblioteczek na stronę (siatka 4x3).
+     * **Laptop (<= 1540px)**: 8 biblioteczek na stronę (siatka 4x2 = 64 gry na ekranie, idealnie w 100% wysokości bez scrolla).
      * **Mobile (<= 768px)**: 4 kompaktowe biblioteczki na ekran (siatka 2x2) z obsługą gestów swipe (przesuwanie palcem w lewo/prawo jak w galerii).
    * **Grupowanie jako osobne strony**: przy włączonym grupowaniu (np. według Stanu gry, Platformy, Oceny czy Roku) każda kategoria stanowi osobną podstronę, a dolny pasek nawigacji pozwala na natychmiastowe przełączanie między grupami.
    * **Kaskadowa animacja po przekątnej**: biblioteczki pojawiają się płynnie i dynamicznie od lewego górnego rogu w dół (`animation-delay` zależne od współrzędnych `row + col`).
@@ -115,4 +115,4 @@ NKMM Baza Gier/
 
 ## Licencja i autorzy
 
-&copy; NKMM Baza Gier | Wersja 2.5. Projekt stworzony do użytku prywatnego.
+&copy; NKMM Baza Gier | Wersja 2.5.1. Projekt stworzony do użytku prywatnego.

@@ -2816,7 +2816,7 @@ function getPageShelfCapacity() {
         return 4; // Mobile: 2 kolumny x 2 rzędy
     }
     if (width <= 1540) {
-        return 12; // Laptop: 4 kolumny x 3 rzędy
+        return 8; // Laptop: 4 kolumny x 2 rzędy
     }
     return 15; // Desktop: 5 kolumn x 3 rzędy
 }
