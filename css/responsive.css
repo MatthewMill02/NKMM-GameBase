@@ -113,7 +113,6 @@
 
     .search-sort-bar {
         display: flex;
-        flex-wrap: wrap;
         align-items: center;
         gap: 8px;
         margin-bottom: 0;
@@ -121,9 +120,9 @@
     }
 
     .search-wrapper {
-        width: 100%;
-        flex: 1 1 100%;
-        min-width: 100%;
+        flex: 1 1 auto;
+        min-width: 0;
+        width: auto;
     }
 
     .search-input {
@@ -139,6 +138,48 @@
         height: 16px;
     }
 
+    /* Przycisk zwijania i rozwijania opcji kafelka na telefonie */
+    .btn-toggle-controls-mobile {
+        width: 38px;
+        height: 38px;
+        flex-shrink: 0;
+        background-color: var(--color-bg);
+        border: 1px solid var(--color-border);
+        border-radius: var(--radius-sm);
+        color: var(--color-text-main);
+        font-family: var(--font-family-main);
+        font-size: 16px;
+        font-weight: bold;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        transition: background-color var(--transition-fast), border-color var(--transition-fast), color var(--transition-fast);
+        user-select: none;
+        touch-action: manipulation;
+    }
+
+    .btn-toggle-controls-mobile:hover {
+        background-color: var(--color-surface-hover);
+        border-color: var(--color-secondary);
+    }
+
+    .btn-toggle-controls-mobile:active {
+        transform: scale(0.95);
+    }
+
+    /* Zwijany kontener opcji na telefonie */
+    .dashboard-controls-collapsible {
+        display: flex;
+        flex-direction: column;
+        width: 100%;
+        margin-top: 8px;
+    }
+
+    .dashboard-controls-collapsible.is-collapsed {
+        display: none !important;
+    }
+
     .sort-group-filters-row {
         width: 100%;
         display: flex;
@@ -149,7 +190,18 @@
         flex: 1 1 0;
         min-width: 0;
         display: flex;
-        align-items: center;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 4px;
+    }
+
+    .control-field-label {
+        font-size: 11px;
+        font-weight: 600;
+        color: var(--color-text-muted);
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        padding-left: 2px;
     }
 
     .sort-wrapper select, .group-wrapper select {
@@ -160,6 +212,16 @@
         font-size: 14px;
         height: 36px;
         box-sizing: border-box;
+    }
+
+    .mobile-filters-heading {
+        font-size: 11px;
+        font-weight: 600;
+        color: var(--color-text-muted);
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        padding-left: 2px;
+        margin-bottom: -2px;
     }
 
     .filters-row {
@@ -498,10 +560,20 @@
         display: none !important;
     }
 
+    .shelf-main-area {
+        min-height: 560px;
+    }
+
+    .games-shelves-container {
+        min-height: 550px;
+    }
+
     .shelf-group-shelves-row {
         display: grid;
         grid-template-columns: repeat(2, minmax(0, 1fr));
         justify-content: center;
+        align-content: start;
+        min-height: 550px;
         gap: 8px;
         width: 100%;
         max-width: 100%;

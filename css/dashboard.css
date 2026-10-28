@@ -292,6 +292,18 @@
     gap: 6px;
 }
 
+.control-field-label {
+    font-size: var(--font-size-sm);
+    color: var(--color-text-muted);
+    white-space: nowrap;
+}
+
+.dashboard-controls-collapsible {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+}
+
 .filters-row {
     display: flex;
     align-items: center;

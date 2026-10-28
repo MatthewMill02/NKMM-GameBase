@@ -1,4 +1,4 @@
-# NKMM Baza Gier — Wersja 2.5.1
+# NKMM Baza Gier — Wersja 2.5.2
 
 Osobisty rejestr rozgrywek, biblioteka gier oraz panel statystyk i porównań graczy. Nowoczesna, w pełni responsywna aplikacja webowa typu serverless, hostowana bezpłatnie na GitHub Pages, komunikująca się bezpośrednio z arkuszem Google Sheets jako bazą danych za pośrednictwem Google Apps Script.
 
@@ -34,9 +34,15 @@ Aplikacja działa w oparciu o architekturę bezserwerową:
 
 ---
 
-## Główne funkcjonalności (Wersja 2.5.1)
+## Główne funkcjonalności (Wersja 2.5.2)
 
-1. **Paginacja stron biblioteki i dynamiczne kategorie**:
+1. **Optymalizacja widoku mobilnego i zwijany panel opcji**:
+   * **Zwijany panel kontrolny**: Obok paska wyszukiwania na telefonie dodano przycisk ze zmieniającym się symbolem `<` / `>`, który domyślnie po wejściu na stronę chowa opcje sortowania, grupowania, filtrów oraz zakładek, pozostawiając czysty i kompaktowy pasek wyszukiwania.
+   * **Czytelne nagłówki sekcji**: Dodano małe, estetyczne etykiety `SORTOWANIE:`, `GRUPOWANIE:` oraz `FILTRY:` ułatwiające orientację w opcjach.
+   * **Stabilność pionowa ekranu (Zero Layout Shift)**: Wyeliminowano skakanie ekranu przy zmianie stron i kategorii na telefonie poprzez zdefiniowanie stałej minimalnej wysokości obszaru roboczego biblioteki oraz usunięcie sztucznego przewijania.
+   * **Ochrona przed podwójnym kliknięciem (Anti-Ghost Click)**: Zabezpieczono przyciski paginacji przed przeskakiwaniem podstron przy szybkim dotknięciu ekranu.
+
+2. **Paginacja stron biblioteki i dynamiczne kategorie**:
    * Zastąpienie długiego scrollowania stronami biblioteczek:
      * **Desktop**: 15 biblioteczek na stronę (siatka 5x3 = 120 gier na ekranie bez potrzeby przewijania).
      * **Laptop (<= 1540px)**: 8 biblioteczek na stronę (siatka 4x2 = 64 gry na ekranie, idealnie w 100% wysokości bez scrolla).
@@ -106,13 +112,4 @@ NKMM Baza Gier/
 
 ## Licencja i autorzy
 
-&copy; NKMM Baza Gier | Wersja 2.5. Projekt stworzony do użytku prywatnego.wykresy, Optimistic UI i obsługa API
-└── resources/
-    └── PolaczenieGithubPages.gs # Skrypt backendu Google Apps Script
-```
-
----
-
-## Licencja i autorzy
-
-&copy; NKMM Baza Gier | Wersja 2.5.1. Projekt stworzony do użytku prywatnego.
+&copy; NKMM Baza Gier | Wersja 2.5.2. Projekt stworzony do użytku prywatnego.

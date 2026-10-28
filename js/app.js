@@ -184,17 +184,16 @@ function initEvents() {
     const btnMobileRefresh = document.getElementById("btnMobileRefresh");
     if (btnMobileRefresh) btnMobileRefresh.addEventListener("click", handleForceRefreshAll);
 
-    // Przełącznik widoczności filtrów (Desktop + Mobile)
-    const btnToggleFilters = document.getElementById("btnToggleFilters") || document.getElementById("btnToggleMobileFilters");
-    const filtersRow = document.getElementById("filtersRow");
-    const filterCaret = document.getElementById("filterToggleCaret");
-    if (btnToggleFilters && filtersRow) {
-        btnToggleFilters.addEventListener("click", () => {
-            const isOpen = filtersRow.classList.toggle("open");
-            filtersRow.classList.toggle("mobile-open", isOpen);
-            btnToggleFilters.classList.toggle("active", isOpen);
-            filtersRow.style.display = isOpen ? "flex" : "none";
-            if (filterCaret) filterCaret.textContent = isOpen ? "^" : "v";
+    // Przycisk zwijania / rozwijania opcji kafelka (sortowanie, grupowanie, filtry, taby) na telefonie
+    const btnToggleControlsMobile = document.getElementById("btnToggleControlsMobile");
+    const controlsCollapsible = document.getElementById("dashboardControlsCollapsible");
+    if (btnToggleControlsMobile && controlsCollapsible) {
+        btnToggleControlsMobile.addEventListener("click", () => {
+            const isCollapsed = controlsCollapsible.classList.toggle("is-collapsed");
+            // Gdy zwinięty: znak '>' (wskazuje możliwość rozwinięcia)
+            // Gdy rozwinięty: znak '<' (wskazuje możliwość zwinięcia)
+            btnToggleControlsMobile.textContent = isCollapsed ? ">" : "<";
+            btnToggleControlsMobile.setAttribute("aria-expanded", isCollapsed ? "false" : "true");
         });
     }
 
@@ -2955,12 +2954,9 @@ function goToPage(page) {
     if (page < 1 || page > total || page === state.pagination.currentPage) return;
     state.pagination.currentPage = page;
     renderGamesGrid();
-    // Przewinięcie na początek sekcji półek jeśli widok wymagał scrolla
-    const container = document.getElementById("dashboardControls");
-    if (container && window.innerWidth <= 768) {
-        container.scrollIntoView({ behavior: "smooth", block: "start" });
-    }
 }
+
+let lastPaginationClickTime = 0;
 
 function initPaginationEvents() {
     const btnPrev = document.getElementById("btnPagePrev");
@@ -2968,13 +2964,25 @@ function initPaginationEvents() {
     const trigger = document.getElementById("btnPageDropdown");
 
     if (btnPrev) {
-        btnPrev.addEventListener("click", () => {
+        btnPrev.addEventListener("click", (e) => {
+            const now = Date.now();
+            if (now - lastPaginationClickTime < 220) {
+                e.preventDefault();
+                return;
+            }
+            lastPaginationClickTime = now;
             goToPage(state.pagination.currentPage - 1);
         });
     }
 
     if (btnNext) {
-        btnNext.addEventListener("click", () => {
+        btnNext.addEventListener("click", (e) => {
+            const now = Date.now();
+            if (now - lastPaginationClickTime < 220) {
+                e.preventDefault();
+                return;
+            }
+            lastPaginationClickTime = now;
             goToPage(state.pagination.currentPage + 1);
         });
     }

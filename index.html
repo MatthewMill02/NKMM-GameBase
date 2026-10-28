@@ -208,9 +208,15 @@
                                 <input type="text" id="searchInput" class="search-input" placeholder="Szukaj gry...">
                                 <button id="btnClearSearch" class="clear-btn" style="display: none;">[x]</button>
                             </div>
+                            <!-- Przycisk zwijania/rozwijania opcji kafelka na telefonie -->
+                            <button type="button" id="btnToggleControlsMobile" class="btn-toggle-controls-mobile mobile-only" aria-label="Zwiń lub rozwiń opcje wyszukiwania i filtrów" title="Pokaż / ukryj opcje">&gt;</button>
+                        </div>
+
+                        <!-- ZWIJALNY KONTENER NA OPCJE W KAFELKU (DOMYŚLNIE ZWINIĘTY NA TELEFONIE) -->
+                        <div class="dashboard-controls-collapsible is-collapsed" id="dashboardControlsCollapsible">
                             <div class="sort-group-filters-row">
                                 <div class="sort-wrapper">
-                                    <label for="sortSelect" class="desktop-only">Sortuj:</label>
+                                    <label for="sortSelect" class="control-field-label">Sortowanie:</label>
                                     <select id="sortSelect" class="form-select">
                                         <option value="updated_desc" selected>Ostatnio zaktualizowane</option>
                                         <option value="title_asc">Tytuł (A-Z)</option>
@@ -222,7 +228,7 @@
                                     </select>
                                 </div>
                                 <div class="group-wrapper">
-                                    <label for="groupSelect" class="desktop-only">Grupuj:</label>
+                                    <label for="groupSelect" class="control-field-label">Grupowanie:</label>
                                     <select id="groupSelect" class="form-select">
                                         <option value="none" selected>Brak</option>
                                         <option value="status">Stan gry</option>
@@ -232,51 +238,52 @@
                                     </select>
                                 </div>
                             </div>
-                        </div>
 
-                        <!-- FILTRY WIELOKROTNEGO WYBORU (LISTY ROZWIJANE) ORAZ TABY W PRAWYM ROGU -->
-                        <div class="filters-row" id="filtersRow">
-                            <!-- Filtr Stanu -->
-                            <div class="filter-dropdown-wrapper" id="filterStatusWrapper">
-                                <button type="button" class="filter-dropdown-btn" id="btnFilterStatus">
-                                    <span id="labelFilterStatus">Stan: Wszystkie</span>
-                                    <span class="dropdown-caret">v</span>
-                                </button>
-                                <div class="filter-dropdown-menu" id="menuFilterStatus" style="display: none;">
-                                    <div class="filter-checklist" id="checklistStatus"></div>
+                            <!-- FILTRY WIELOKROTNEGO WYBORU (LISTY ROZWIJANE) ORAZ TABY W PRAWYM ROGU -->
+                            <div class="filters-row" id="filtersRow">
+                                <div class="mobile-filters-heading mobile-only">Filtry:</div>
+                                <!-- Filtr Stanu -->
+                                <div class="filter-dropdown-wrapper" id="filterStatusWrapper">
+                                    <button type="button" class="filter-dropdown-btn" id="btnFilterStatus">
+                                        <span id="labelFilterStatus">Stan: Wszystkie</span>
+                                        <span class="dropdown-caret">v</span>
+                                    </button>
+                                    <div class="filter-dropdown-menu" id="menuFilterStatus" style="display: none;">
+                                        <div class="filter-checklist" id="checklistStatus"></div>
+                                    </div>
                                 </div>
-                            </div>
 
-                            <!-- Filtr Platformy -->
-                            <div class="filter-dropdown-wrapper" id="filterPlatformWrapper">
-                                <button type="button" class="filter-dropdown-btn" id="btnFilterPlatform">
-                                    <span id="labelFilterPlatform">Platforma: Wszystkie</span>
-                                    <span class="dropdown-caret">v</span>
-                                </button>
-                                <div class="filter-dropdown-menu" id="menuFilterPlatform" style="display: none;">
-                                    <div class="filter-checklist" id="checklistPlatform"></div>
+                                <!-- Filtr Platformy -->
+                                <div class="filter-dropdown-wrapper" id="filterPlatformWrapper">
+                                    <button type="button" class="filter-dropdown-btn" id="btnFilterPlatform">
+                                        <span id="labelFilterPlatform">Platforma: Wszystkie</span>
+                                        <span class="dropdown-caret">v</span>
+                                    </button>
+                                    <div class="filter-dropdown-menu" id="menuFilterPlatform" style="display: none;">
+                                        <div class="filter-checklist" id="checklistPlatform"></div>
+                                    </div>
                                 </div>
-                            </div>
 
-                            <!-- Filtr Kolekcji -->
-                            <div class="filter-dropdown-wrapper" id="filterCollectionWrapper">
-                                <button type="button" class="filter-dropdown-btn" id="btnFilterCollection">
-                                    <span id="labelFilterCollection">Kolekcje: Wszystkie</span>
-                                    <span class="dropdown-caret">v</span>
-                                </button>
-                                <div class="filter-dropdown-menu" id="menuFilterCollection" style="display: none;">
-                                    <div class="filter-checklist" id="checklistCollection"></div>
+                                <!-- Filtr Kolekcji -->
+                                <div class="filter-dropdown-wrapper" id="filterCollectionWrapper">
+                                    <button type="button" class="filter-dropdown-btn" id="btnFilterCollection">
+                                        <span id="labelFilterCollection">Kolekcje: Wszystkie</span>
+                                        <span class="dropdown-caret">v</span>
+                                    </button>
+                                    <div class="filter-dropdown-menu" id="menuFilterCollection" style="display: none;">
+                                        <div class="filter-checklist" id="checklistCollection"></div>
+                                    </div>
                                 </div>
+
+                                <!-- Przycisk resetowania filtrów -->
+                                <button type="button" id="btnResetFilters" class="btn-secondary" style="font-size: 14px; padding: 6px 12px;">Resetuj</button>
+
+                                <!-- GŁÓWNE ZAKŁADKI NAWIGACJI (TABY W PRAWYM DOLNYM ROGU PASKA FILTRÓW) -->
+                                <nav class="main-tabs-bar dashboard-tabs-bar" id="mainNavTabs">
+                                    <button class="main-tab-btn active" id="tabBtnGames" data-target="tabViewGames">Baza gier</button>
+                                    <button class="main-tab-btn" id="tabBtnCharts" data-target="tabViewCharts">Wykresy</button>
+                                </nav>
                             </div>
-
-                            <!-- Przycisk resetowania filtrów -->
-                            <button type="button" id="btnResetFilters" class="btn-secondary" style="font-size: 14px; padding: 6px 12px;">Resetuj</button>
-
-                            <!-- GŁÓWNE ZAKŁADKI NAWIGACJI (TABY W PRAWYM DOLNYM ROGU PASKA FILTRÓW) -->
-                            <nav class="main-tabs-bar dashboard-tabs-bar" id="mainNavTabs">
-                                <button class="main-tab-btn active" id="tabBtnGames" data-target="tabViewGames">Baza gier</button>
-                                <button class="main-tab-btn" id="tabBtnCharts" data-target="tabViewCharts">Wykresy</button>
-                            </nav>
                         </div>
                     </div>
 
