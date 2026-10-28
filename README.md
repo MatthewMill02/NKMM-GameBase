@@ -40,7 +40,7 @@ Aplikacja działa w oparciu o architekturę bezserwerową:
    * Zastąpienie długiego scrollowania stronami biblioteczek:
      * **Desktop**: 15 biblioteczek na stronę (siatka 5x3 = 120 gier na ekranie bez potrzeby przewijania).
      * **Laptop (<= 1540px)**: 8 biblioteczek na stronę (siatka 4x2 = 64 gry na ekranie, idealnie w 100% wysokości bez scrolla).
-     * **Mobile (<= 768px)**: 4 kompaktowe biblioteczki na ekran (siatka 2x2) z obsługą gestów swipe (przesuwanie palcem w lewo/prawo jak w galerii).
+     * **Mobile (<= 768px)**: 6 biblioteczek na ekran (siatka 2x3 = 48 gier) z obsługą gestów swipe (przesuwanie palcem w lewo/prawo jak w galerii).
    * **Grupowanie jako osobne strony**: przy włączonym grupowaniu (np. według Stanu gry, Platformy, Oceny czy Roku) każda kategoria stanowi osobną podstronę, a dolny pasek nawigacji pozwala na natychmiastowe przełączanie między grupami.
    * **Kaskadowa animacja po przekątnej**: biblioteczki pojawiają się płynnie i dynamicznie od lewego górnego rogu w dół (`animation-delay` zależne od współrzędnych `row + col`).
 

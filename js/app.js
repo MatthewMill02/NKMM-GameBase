@@ -2813,7 +2813,7 @@ function getGroupSortOrder(groupName, groupBy) {
 function getPageShelfCapacity() {
     const width = window.innerWidth;
     if (width <= 768) {
-        return 4; // Mobile: 2 kolumny x 2 rzędy
+        return 6; // Mobile: 2 kolumny x 3 rzędy
     }
     if (width <= 1540) {
         return 8; // Laptop: 4 kolumny x 2 rzędy
