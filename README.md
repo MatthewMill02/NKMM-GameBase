@@ -1,4 +1,4 @@
-# NKMM Baza Gier — Wersja 2.4.1
+# NKMM Baza Gier — Wersja 2.5
 
 Osobisty rejestr rozgrywek, biblioteka gier oraz panel statystyk i porównań graczy. Nowoczesna, w pełni responsywna aplikacja webowa typu serverless, hostowana bezpłatnie na GitHub Pages, komunikująca się bezpośrednio z arkuszem Google Sheets jako bazą danych za pośrednictwem Google Apps Script.
 
@@ -26,7 +26,7 @@ Aplikacja działa w oparciu o architekturę bezserwerową:
 +--------------------------------+
 ```
 
-* **Frontend**: Czysty HTML5, Vanilla CSS3 (nowoczesny, minimalistyczny design bez ciężkich frameworków) oraz JavaScript ES6+.
+* **Frontend**: Czysty HTML5, modułowy Vanilla CSS3 (dedykowane tokeny projektowe, brak frameworków) oraz JavaScript ES6+.
 * **Hosting**: GitHub Pages.
 * **Baza danych i silnik backendowy**: Google Sheets + Google Apps Script (REST Web App API / JSONP).
 * **Integracja zewnętrzna**: RAWG Video Games Database API (automatyczne pobieranie okładek i grafik gier).
@@ -34,54 +34,42 @@ Aplikacja działa w oparciu o architekturę bezserwerową:
 
 ---
 
-## Główne funkcjonalności (Wersja 2.4)
+## Główne funkcjonalności (Wersja 2.5)
 
-1. **Obsługa profili i dynamiczne arkusze**:
-   * Przełączanie profili w czasie rzeczywistym z dedykowanymi motywami kolorystycznymi i awatarami graczy (`assets/[Nazwa bazy].PNG` z fallbackiem do `assets/icon.jpg`).
-   * Dynamiczne dodawanie nowych graczy bez ingerencji w kod źródłowy – automatyczne tworzenie zakładki w Google Sheets oraz formuł we wszystkich arkuszach statystyk.
-   * Ekran powitalny ze swobodnie rozmieszczonymi awatarami graczy, dopasowany do pełnej wysokości okna (100vh) bez scrolla.
+1. **Paginacja stron biblioteki i dynamiczne kategorie**:
+   * Zastąpienie długiego scrollowania stronami biblioteczek:
+     * **Desktop**: 15 biblioteczek na stronę (siatka 5x3 = 120 gier na ekranie bez potrzeby przewijania).
+     * **Laptop (<= 1540px)**: 12 biblioteczek na stronę (siatka 4x3).
+     * **Mobile (<= 768px)**: 4 kompaktowe biblioteczki na ekran (siatka 2x2) z obsługą gestów swipe (przesuwanie palcem w lewo/prawo jak w galerii).
+   * **Grupowanie jako osobne strony**: przy włączonym grupowaniu (np. według Stanu gry, Platformy, Oceny czy Roku) każda kategoria stanowi osobną podstronę, a dolny pasek nawigacji pozwala na natychmiastowe przełączanie między grupami.
+   * **Kaskadowa animacja po przekątnej**: biblioteczki pojawiają się płynnie i dynamicznie od lewego górnego rogu w dół (`animation-delay` zależne od współrzędnych `row + col`).
 
-2. **Optymalizacja wydajności i płynności (Scroll 60 FPS)**:
-   * Wyeliminowanie przycinania przewijania (lagów) poprzez akcelerację sprzętową GPU dla kafelkowego tła (`will-change: transform`).
-   * Wirtualizacja renderowania półek za pomocą natywnego `content-visibility: auto`.
-   * Przeniesienie obliczeń pozycji monitora do pętli `requestAnimationFrame` z pasywnymi nasłuchiwaczami zdarzeń.
+2. **Dedykowany pasek nawigacji stron**:
+   * Umieszczony pod biblioteczkami z białymi, ostrymi wektorami strzałek SVG.
+   * Rozwijane menu wyboru stron i kategorii z automatycznym dopasowaniem do szerokości treści i cienkim, minimalistycznym paskiem przewijania.
 
-3. **Dedykowany układ dla laptopów i zwijana gablota**:
-   * Stały 4-kolumnowy układ szafek z książkami na ekranach laptopowych (<= 1540px).
-   * Możliwość zwijania gabloty profilu wraz ze wszystkimi statystykami – na laptopach gablota jest domyślnie zwinięta, podnosząc punkt startowy monitora i eksponując zawartość półek.
-   * Zapamiętywanie stanu zwinięcia w `localStorage`.
+3. **Modułowa architektura CSS i tokeny**:
+   * Rozbicie stylów na zorganizowane moduły: `tokens.css`, `base.css`, `nav.css`, `welcome.css`, `dashboard.css`, `shelves.css`, `forms-modals.css`, `charts-tables.css`, `responsive.css`.
+   * Stały nagłówek (`position: fixed`) niezawodnie widoczny na górze ekranu w trakcie całego korzystania z aplikacji.
 
-4. **Dedykowane hasła i autoryzacja per baza**:
-   * Logowanie administratora przypisane bezpośrednio do konkretnej bazy gracza.
-   * Backend weryfikujący poprawność hasła dla wybranego arkusza bez globalnego hasła głównego.
+4. **Bezpieczne zarządzanie hasłami w Google Apps Script**:
+   * Odczyt haseł z `Script Properties` (Właściwości skryptu) w Google Apps Script, bez hardcodowania haseł w kodzie repozytorium.
+   * Automatyczna obsługa każdego nowego użytkownika o formacie `Baza gier {2 litery}`.
 
-5. **Indywidualne palety barw per gracz w arkuszu**:
-   * Każdy użytkownik posiada dedykowaną kolumnę kolorów stanów (np. `Kolor MM`, `Kolor NK`), odczytywaną bezpośrednio z backendu.
-   * Kolorowanie grzbietów gier i etykiet dopasowane indywidualnie do aktywnego profilu.
+5. **Obsługa profili i dynamiczne arkusze**:
+   * Przełączanie profili w czasie rzeczywistym z dedykowanymi motywami kolorystycznymi i awatarami graczy.
+   * Dynamiczne dodawanie nowych graczy bez ingerencji w kod źródłowy – automatyczne tworzenie zakładki w Google Sheets oraz formuł w statystykach.
 
 6. **Kolejka synchronizacji w tle i Optimistic UI**:
    * Błyskawiczne dodawanie, edycja i usuwanie gier z natychmiastową aktualizacją interfejsu.
    * Kolejka synchronizacji utrwalana w pamięci lokalnej, automatycznie ponawiająca wysyłanie danych do arkusza po powrocie połączenia.
 
 7. **Wirtualna półka z grami i gablota (Showcase)**:
-   * Trójwymiarowa prezentacja biblioteki w formie półek z grzbietami gier (układ pionowy, poziomy, miks, dynamiczny podgląd monitora z opisem i okładką).
+   * Prezentacja biblioteki w formie półek z grzbietami gier i dynamicznym podglądem monitora.
    * Edytowalna gablota 8 wyróżnionych tytułów na profilu gracza w stylu platformy Steam.
-   * Masowa i pojedyncza synchronizacja brakujących okładek za pośrednictwem RAWG API.
 
 8. **Interaktywne wykresy i statystyki (SVG)**:
-   * Porównanie stanów gier (wykres słupkowy).
-   * Udział platform w bibliotece i w czasie gry (wykres kołowy / donut).
-   * Oś czasu ukończeń gier w poszczególnych miesiącach i latach (wykres liniowy).
-   * Rozkład i histogram ocen gier.
-
-9. **Zaawansowane wyszukiwanie i filtry**:
-   * Błyskawiczne wyszukiwanie po tytule gry.
-   * Filtry wielokrotnego wyboru dla Stanu, Platformy i Kolekcji/Tagów.
-   * Sortowanie po tytule, ocenie, liczbie godzin oraz dacie ukończenia.
-
-10. **Pełna responsywność (Desktop, Laptop & Mobile)**:
-    * Widok mobilny z dedykowaną szufladą boczną (drawer), nagłówkiem jednoliniowym oraz dopasowanymi modaliami.
-    * Bezpieczeństwo formularzy: ochrona przed utratą niezapisanych zmian przy przypadkowym zamknięciu okna.
+   * Porównanie stanów gier, udział platform, oś czasu ukończeń oraz histogram ocen gier.
 
 ---
 
@@ -91,16 +79,25 @@ Aplikacja działa w oparciu o architekturę bezserwerową:
 NKMM Baza Gier/
 ├── index.html                   # Główna struktura UI aplikacji
 ├── README.md                    # Dokumentacja projektu
-├── assets/                      # Ikony, awatary i grafiki baz graczy
+├── assets/                      # Ikony, awatary, grafiki baz graczy oraz wektory SVG
 │   ├── icon.jpg
 │   ├── background.png
-│   ├── Baza gier MM.PNG
-│   ├── Baza gier NK.PNG
+│   ├── arrow-block-left-svgrepo-com.svg
+│   ├── arrow-block-right-svgrepo-com.svg
 │   └── ...
 ├── css/
-│   └── style.css                # Kompletny arkusz stylów CSS (w tym reguły półki, laptopa i stopki)
+│   ├── tokens.css               # Globalne zmienne projektowe i tokeny stylów
+│   ├── base.css                 # Style bazowe i reset
+│   ├── nav.css                  # Nagłówek i szuflada mobilna
+│   ├── welcome.css              # Ekran powitalny
+│   ├── dashboard.css            # Układ pulpitu i panele sterowania
+│   ├── shelves.css              # Półki z grami, animacje i paginacja
+│   ├── forms-modals.css         # Okna modalne i formularze edycji
+│   ├── charts-tables.css        # Wykresy SVG i tabele statystyk
+│   ├── responsive.css           # Responsywność (Desktop, Laptop, Mobile)
+│   └── style.css                # Główny punkt wejściowy importujący moduły CSS
 ├── js/
-│   └── app.js                   # Główna logika aplikacji, wykresy, Optimistic UI i obsługa API
+│   └── app.js                   # Główna logika aplikacji, paginacja, wykresy i obsługa API
 └── resources/
     └── PolaczenieGithubPages.gs # Skrypt backendu Google Apps Script
 ```
@@ -109,4 +106,13 @@ NKMM Baza Gier/
 
 ## Licencja i autorzy
 
-&copy; NKMM Baza Gier | Wersja 2.4. Projekt stworzony do użytku prywatnego.
+&copy; NKMM Baza Gier | Wersja 2.5. Projekt stworzony do użytku prywatnego.wykresy, Optimistic UI i obsługa API
+└── resources/
+    └── PolaczenieGithubPages.gs # Skrypt backendu Google Apps Script
+```
+
+---
+
+## Licencja i autorzy
+
+&copy; NKMM Baza Gier | Wersja 2.5. Projekt stworzony do użytku prywatnego.

@@ -305,34 +305,34 @@
 }
 
 .shelf-group-section {
-    background: rgba(20, 24, 30, 0.88);
-    border: 1px solid #364152;
-    border-radius: 6px;
-    padding: 22px 14px 16px;
+    background: transparent;
+    border: none;
+    box-shadow: none;
+    padding: 0;
+    margin-top: 14px;
     position: relative;
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
     box-sizing: border-box;
     width: 100%;
-    content-visibility: auto;
-    contain-intrinsic-size: 280px;
 }
 
 .shelf-group-header {
-    position: absolute;
-    top: -12px;
+    display: inline-block;
+    position: relative;
+    top: 0;
     left: 50%;
     transform: translateX(-50%);
     background: #181e26;
     border: 1px solid #4a596e;
-    padding: 3px 18px;
-    border-radius: 12px;
+    padding: 5px 22px;
+    border-radius: 14px;
     font-size: 14px;
     font-weight: bold;
     color: #f0f6fc;
     letter-spacing: 0.5px;
     white-space: nowrap;
-    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.5);
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.6);
     z-index: 10;
+    margin-bottom: 16px;
 }
 
 .shelf-group-shelves-row {
@@ -662,3 +662,188 @@
     color: #55ffff;
     text-shadow: 1px 1px 0px #153f3f;
 }
+
+/* Animacja kaskadowego pojawiania się biblioteczek ukośnie (od góry do dołu) */
+@keyframes shelfDiagonalEnter {
+    0% {
+        opacity: 0;
+        transform: translateY(18px) scale(0.96);
+    }
+    100% {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+.game-shelf-unit.shelf-anim-enter {
+    opacity: 0;
+    animation: shelfDiagonalEnter 0.28s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* Pasek paginacji pod biblioteczkami */
+.shelves-pagination-bar {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    padding: 10px 14px;
+    margin-top: 10px;
+    background: rgba(26, 30, 36, 0.95);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.45);
+    width: fit-content;
+    margin-left: auto;
+    margin-right: auto;
+    user-select: none;
+    z-index: 30;
+}
+
+.pagination-btn {
+    width: 38px;
+    height: 38px;
+    border-radius: var(--radius-sm);
+    background-color: var(--color-surface);
+    border: 1px solid var(--color-border);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: background-color var(--transition-fast), border-color var(--transition-fast), transform 0.1s ease;
+    padding: 0;
+}
+
+.pagination-btn:hover:not(:disabled) {
+    background-color: var(--color-surface-hover);
+    border-color: var(--color-secondary);
+    transform: scale(1.04);
+}
+
+.pagination-btn:active:not(:disabled) {
+    transform: scale(0.96);
+}
+
+.pagination-btn:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+    filter: grayscale(1);
+}
+
+.pagination-arrow-svg {
+    width: 20px;
+    height: 20px;
+    display: block;
+    color: #ffffff;
+    stroke: #ffffff;
+    pointer-events: none;
+}
+
+.pagination-arrow-svg path {
+    stroke: #ffffff !important;
+}
+
+.pagination-dropdown-wrapper {
+    position: relative;
+}
+
+.pagination-page-trigger {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 14px;
+    height: 38px;
+    background-color: var(--color-bg);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    color: var(--color-text-main);
+    font-family: var(--font-family-main);
+    font-size: var(--font-size-base);
+    font-weight: bold;
+    cursor: pointer;
+    transition: background-color var(--transition-fast), border-color var(--transition-fast);
+}
+
+.pagination-page-trigger:hover {
+    background-color: var(--color-surface-hover);
+    border-color: var(--color-secondary);
+}
+
+.pagination-dropdown-caret {
+    font-size: 11px;
+    color: var(--color-text-muted);
+    transition: transform var(--transition-fast);
+}
+
+.pagination-dropdown-wrapper.open .pagination-dropdown-caret {
+    transform: rotate(180deg);
+}
+
+.pagination-dropdown-menu {
+    position: absolute;
+    bottom: calc(100% + 6px);
+    left: 50%;
+    transform: translateX(-50%);
+    background-color: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6);
+    min-width: 100%;
+    width: max-content;
+    max-width: min(90vw, 360px);
+    max-height: 260px;
+    overflow-y: auto;
+    z-index: 100;
+    padding: 5px;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    box-sizing: border-box;
+    scrollbar-width: thin;
+    scrollbar-color: #3b4453 #14181d;
+}
+
+.pagination-dropdown-menu::-webkit-scrollbar {
+    width: 6px;
+}
+
+.pagination-dropdown-menu::-webkit-scrollbar-track {
+    background: #14181d;
+    border-radius: 3px;
+}
+
+.pagination-dropdown-menu::-webkit-scrollbar-thumb {
+    background: #3b4453;
+    border-radius: 3px;
+}
+
+.pagination-dropdown-menu::-webkit-scrollbar-thumb:hover {
+    background: #4a5568;
+}
+
+.pagination-page-option {
+    padding: 7px 14px;
+    background: transparent;
+    border: none;
+    border-radius: var(--radius-sm);
+    color: var(--color-text-main);
+    font-family: var(--font-family-main);
+    font-size: var(--font-size-sm);
+    text-align: left;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: background-color var(--transition-fast), color var(--transition-fast);
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.pagination-page-option:hover {
+    background-color: var(--color-surface-hover);
+}
+
+.pagination-page-option.active {
+    background-color: var(--color-primary);
+    color: #ffffff;
+    font-weight: bold;
+}
+
+

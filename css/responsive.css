@@ -264,7 +264,10 @@
     }
 
     .shelf-group-section {
-        padding: 18px 6px 12px;
+        padding: 0;
+        background: transparent;
+        border: none;
+        box-shadow: none;
         width: 100%;
         box-sizing: border-box;
     }
@@ -496,25 +499,32 @@
     }
 
     .shelf-group-shelves-row {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
         justify-content: center;
-        gap: 16px;
+        gap: 8px;
+        width: 100%;
+        max-width: 100%;
+        box-sizing: border-box;
     }
 
     .game-shelf-unit {
-        width: 280px;
-        height: 280px;
-        padding: 10px 13px;
-        max-width: calc(100vw - 20px);
+        width: 100%;
+        max-width: 178px;
+        height: 178px;
+        padding: 6px 8px;
+        margin: 0 auto;
+        box-sizing: border-box;
     }
 
     .shelf-tier {
-        height: 124px;
-        padding: 0 5px 3px 5px;
+        height: 78px;
+        padding: 0 3px 2px 3px;
     }
 
     .shelf-stack {
-        width: 164px;
-        gap: 4px;
+        width: 100px;
+        gap: 2px;
     }
 
     .shelf-stack.stack-left .game-spine:nth-child(1) {
@@ -522,19 +532,19 @@
     }
 
     .shelf-stack.stack-left .game-spine:nth-child(2) {
-        margin-left: 13px;
+        margin-left: 8px;
     }
 
     .shelf-stack.stack-left .game-spine:nth-child(3) {
-        margin-left: 4px;
+        margin-left: 2px;
     }
 
     .shelf-stack.stack-right .game-spine:nth-child(1) {
-        margin-right: 4px;
+        margin-right: 2px;
     }
 
     .shelf-stack.stack-right .game-spine:nth-child(2) {
-        margin-right: 18px;
+        margin-right: 10px;
     }
 
     .shelf-stack.stack-right .game-spine:nth-child(3) {
@@ -542,48 +552,68 @@
     }
 
     .shelf-vertical-slot {
-        width: 65px;
+        width: 42px;
     }
 
     .shelf-lean-slot {
-        width: 85px;
+        width: 54px;
     }
 
     .game-spine.spine-vertical {
-        width: 39px;
-        height: 108px;
+        width: 27px;
+        height: 72px;
     }
 
     .game-spine.spine-vertical.spine-upright {
-        margin-left: 3px;
+        margin-left: 2px;
     }
 
     .game-spine.spine-vertical.spine-leaned-right {
-        height: 101px;
-        width: 36px;
-        margin-right: 54px;
-        margin-bottom: 4px;
+        height: 67px;
+        width: 25px;
+        margin-right: 32px;
+        margin-bottom: 2px;
     }
 
     .game-spine-text {
-        font-size: 14px;
-        max-height: 96px;
-        padding-top: 6px;
-        padding-bottom: 4px;
+        font-size: 11px;
+        max-height: 66px;
+        padding-top: 3px;
+        padding-bottom: 2px;
+        letter-spacing: -0.3px;
     }
 
     .spine-leaned-right .game-spine-text {
-        max-height: 88px;
+        max-height: 60px;
     }
 
     .game-spine.spine-horizontal {
-        width: 161px;
-        height: 32px;
+        width: 100px;
+        height: 22px;
     }
 
     .game-spine-text-horiz {
-        font-size: 14px;
-        line-height: 32px;
-        padding: 0 10px;
+        font-size: 11px;
+        line-height: 22px;
+        padding: 0 6px;
+    }
+
+    .shelves-pagination-bar {
+        padding: 8px 10px;
+        gap: 8px;
+        width: 100%;
+        max-width: 320px;
+        box-sizing: border-box;
+    }
+
+    .pagination-page-trigger {
+        font-size: 13px;
+        padding: 4px 10px;
+        height: 34px;
+    }
+
+    .pagination-btn {
+        width: 34px;
+        height: 34px;
     }
 }

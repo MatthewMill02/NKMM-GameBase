@@ -8,6 +8,8 @@
 html {
     max-width: 100%;
     overflow-x: hidden;
+    scrollbar-width: thin;
+    scrollbar-color: #5a3821 #19120b;
 }
 
 body {
@@ -25,6 +27,16 @@ body {
     flex-direction: column;
     -webkit-tap-highlight-color: transparent;
     position: relative;
+}
+
+/* W widoku domyślnym bez grup ukrywamy scrollbar okna */
+body:not(.has-grouped-shelves) {
+    scrollbar-width: none; /* Firefox */
+    -ms-overflow-style: none; /* IE/Edge */
+}
+
+body:not(.has-grouped-shelves)::-webkit-scrollbar {
+    display: none; /* Chrome/Safari */
 }
 
 body::before {

@@ -87,6 +87,10 @@ const state = {
         collections: new Set(),
         sort: "updated_desc",
         group: "none"
+    },
+    pagination: {
+        currentPage: 1,
+        totalPages: 1
     }
 };
 
@@ -242,7 +246,12 @@ function initEvents() {
         if (!e.target.closest(".filter-dropdown-wrapper")) {
             closeAllFilterDropdowns();
         }
+        if (!e.target.closest(".pagination-dropdown-wrapper")) {
+            closePaginationDropdown();
+        }
     });
+
+    initPaginationEvents();
 
     // GŁÓWNE ZAKŁADKI NAWIGACJI (TABY)
     document.querySelectorAll(".main-tab-btn").forEach(btn => {
@@ -327,6 +336,7 @@ function initEvents() {
 
     searchInput.addEventListener("input", (e) => {
         state.filters.search = e.target.value.trim().toLowerCase();
+        state.pagination.currentPage = 1;
         clearSearchBtn.style.display = state.filters.search ? "inline-block" : "none";
         renderGamesGrid();
     });
@@ -334,12 +344,14 @@ function initEvents() {
     clearSearchBtn.addEventListener("click", () => {
         searchInput.value = "";
         state.filters.search = "";
+        state.pagination.currentPage = 1;
         clearSearchBtn.style.display = "none";
         renderGamesGrid();
     });
 
     document.getElementById("sortSelect").addEventListener("change", (e) => {
         state.filters.sort = e.target.value;
+        state.pagination.currentPage = 1;
         renderGamesGrid();
     });
 
@@ -347,6 +359,7 @@ function initEvents() {
     if (groupSelect) {
         groupSelect.addEventListener("change", (e) => {
             state.filters.group = e.target.value;
+            state.pagination.currentPage = 1;
             renderGamesGrid();
         });
     }
@@ -597,9 +610,17 @@ function initEvents() {
     }
 
     // Zmiana rozmiaru okna
+    let lastCapacity = typeof getPageShelfCapacity === "function" ? getPageShelfCapacity() : 15;
     window.addEventListener("resize", () => {
         if (state.currentScreen === "welcome") {
             renderWelcomeHeads();
+        } else if (state.currentScreen === "dashboard" && state.currentTab === "tabViewGames") {
+            const newCap = getPageShelfCapacity();
+            if (newCap !== lastCapacity) {
+                lastCapacity = newCap;
+                state.pagination.currentPage = 1;
+                renderGamesGrid();
+            }
         }
     });
 
@@ -2649,13 +2670,38 @@ function renderGamesShelves() {
     renderMonitorGameDetails(state.selectedGame);
 
     const groupBy = state.filters.group || "none";
+    const paginationBar = document.getElementById("shelvesPaginationBar");
 
     if (groupBy === "none") {
+        document.body.classList.remove("has-grouped-shelves");
+        // Domyślny widok bez grupowania - paginacja według pojemności ekranu (15 desktop, 12 laptop, 4 mobile)
+        const pageSize = getPageShelfCapacity();
+        const totalShelvesNeeded = Math.ceil(filtered.length / 8);
+        const totalPages = Math.max(1, Math.ceil(totalShelvesNeeded / pageSize));
+        state.pagination.totalPages = totalPages;
+
+        if (state.pagination.currentPage > totalPages) {
+            state.pagination.currentPage = totalPages;
+        }
+        if (state.pagination.currentPage < 1) {
+            state.pagination.currentPage = 1;
+        }
+
+        const currentPg = state.pagination.currentPage;
+        const startGameIdx = (currentPg - 1) * (pageSize * 8);
+        const pageGames = filtered.slice(startGameIdx, startGameIdx + (pageSize * 8));
+
         const shelvesRow = document.createElement("div");
         shelvesRow.className = "shelf-group-shelves-row";
-        renderShelfUnitsForGames(filtered, shelvesRow);
+        renderShelfUnitsForGames(pageGames, shelvesRow, true);
         shelvesContainer.appendChild(shelvesRow);
+
+        renderPaginationControls(totalPages, null);
+        attachMobileSwipeToShelves(shelvesContainer);
     } else {
+        // Widok pogrupowany: KAŻDA KATEGORIA TO OSOBNA STRONA PAGINACJI!
+        document.body.classList.remove("has-grouped-shelves");
+
         // Podział gier na grupy
         const groupsMap = new Map();
         filtered.forEach(game => {
@@ -2676,25 +2722,39 @@ function renderGamesShelves() {
             return String(a).localeCompare(String(b));
         });
 
-        sortedGroupKeys.forEach(groupKey => {
-            const gamesInGroup = groupsMap.get(groupKey);
-            if (!gamesInGroup || gamesInGroup.length === 0) return;
+        const totalPages = sortedGroupKeys.length;
+        state.pagination.totalPages = totalPages;
 
-            const section = document.createElement("div");
-            section.className = "shelf-group-section";
+        if (state.pagination.currentPage > totalPages) {
+            state.pagination.currentPage = totalPages;
+        }
+        if (state.pagination.currentPage < 1) {
+            state.pagination.currentPage = 1;
+        }
 
-            const header = document.createElement("div");
-            header.className = "shelf-group-header";
-            header.textContent = `${groupKey} (${gamesInGroup.length})`;
-            section.appendChild(header);
+        const currentGroupIndex = state.pagination.currentPage - 1;
+        const activeGroupKey = sortedGroupKeys[currentGroupIndex];
+        const gamesInGroup = groupsMap.get(activeGroupKey) || [];
 
-            const shelvesRow = document.createElement("div");
-            shelvesRow.className = "shelf-group-shelves-row";
-            renderShelfUnitsForGames(gamesInGroup, shelvesRow);
-            section.appendChild(shelvesRow);
+        // Renderowanie aktywnej grupy jako bieżącej strony
+        const section = document.createElement("div");
+        section.className = "shelf-group-section";
 
-            shelvesContainer.appendChild(section);
-        });
+        const header = document.createElement("div");
+        header.className = "shelf-group-header";
+        header.textContent = `${activeGroupKey} (${gamesInGroup.length})`;
+        section.appendChild(header);
+
+        const shelvesRow = document.createElement("div");
+        shelvesRow.className = "shelf-group-shelves-row";
+        renderShelfUnitsForGames(gamesInGroup, shelvesRow, true);
+        section.appendChild(shelvesRow);
+
+        shelvesContainer.appendChild(section);
+
+        // Wyświetlenie paska paginacji z nazwami kategorii
+        renderPaginationControls(totalPages, sortedGroupKeys);
+        attachMobileSwipeToShelves(shelvesContainer);
     }
 }
 
@@ -2750,13 +2810,44 @@ function getGroupSortOrder(groupName, groupBy) {
     return groupName;
 }
 
-function renderShelfUnitsForGames(gamesList, container) {
+function getPageShelfCapacity() {
+    const width = window.innerWidth;
+    if (width <= 768) {
+        return 4; // Mobile: 2 kolumny x 2 rzędy
+    }
+    if (width <= 1540) {
+        return 12; // Laptop: 4 kolumny x 3 rzędy
+    }
+    return 15; // Desktop: 5 kolumn x 3 rzędy
+}
+
+function getShelfGridColumnsCount() {
+    const width = window.innerWidth;
+    if (width <= 768) return 2;
+    if (width <= 1540) return 4;
+    return 5;
+}
+
+function renderShelfUnitsForGames(gamesList, container, applyAnimation = false) {
     const SHELF_CAPACITY = 8;
+    const colsCount = getShelfGridColumnsCount();
+    let shelfIndex = 0;
+
     for (let i = 0; i < gamesList.length; i += SHELF_CAPACITY) {
         const shelfChunk = gamesList.slice(i, i + SHELF_CAPACITY);
 
         const shelfUnit = document.createElement("div");
         shelfUnit.className = "game-shelf-unit";
+
+        if (applyAnimation) {
+            shelfUnit.classList.add("shelf-anim-enter");
+            // Kaskada po przekątnej od lewego górnego rogu w dół (wiersz + kolumna)
+            const row = Math.floor(shelfIndex / colsCount);
+            const col = shelfIndex % colsCount;
+            const diagonalStep = row + col;
+            const delayMs = diagonalStep * 40;
+            shelfUnit.style.animationDelay = `${delayMs}ms`;
+        }
 
         // GÓRNY POZIOM: 3 poziome po lewej (stos) + 1 pionowa pochylona o 30 stopni po prawej
         const topTier = document.createElement("div");
@@ -2807,7 +2898,158 @@ function renderShelfUnitsForGames(gamesList, container) {
         shelfUnit.appendChild(bottomTier);
 
         container.appendChild(shelfUnit);
+        shelfIndex++;
     }
+}
+
+function renderPaginationControls(totalPages, groupNames = null) {
+    const bar = document.getElementById("shelvesPaginationBar");
+    if (!bar) return;
+
+    if (totalPages <= 1) {
+        bar.style.display = "none";
+        return;
+    }
+
+    bar.style.display = "flex";
+    const current = state.pagination.currentPage;
+
+    const btnPrev = document.getElementById("btnPagePrev");
+    const btnNext = document.getElementById("btnPageNext");
+    const currentText = document.getElementById("paginationCurrentText");
+    const menu = document.getElementById("paginationDropdownMenu");
+
+    if (btnPrev) btnPrev.disabled = current <= 1;
+    if (btnNext) btnNext.disabled = current >= totalPages;
+
+    if (currentText) {
+        if (Array.isArray(groupNames) && groupNames[current - 1]) {
+            currentText.textContent = groupNames[current - 1];
+        } else {
+            currentText.textContent = `Strona ${current} z ${totalPages}`;
+        }
+    }
+
+    if (menu) {
+        menu.innerHTML = "";
+        for (let p = 1; p <= totalPages; p++) {
+            const opt = document.createElement("button");
+            opt.type = "button";
+            opt.className = `pagination-page-option ${p === current ? "active" : ""}`;
+            if (Array.isArray(groupNames) && groupNames[p - 1]) {
+                opt.textContent = groupNames[p - 1];
+            } else {
+                opt.textContent = `Strona ${p}`;
+            }
+            opt.addEventListener("click", () => {
+                goToPage(p);
+                closePaginationDropdown();
+            });
+            menu.appendChild(opt);
+        }
+    }
+}
+
+function goToPage(page) {
+    const total = state.pagination.totalPages || 1;
+    if (page < 1 || page > total || page === state.pagination.currentPage) return;
+    state.pagination.currentPage = page;
+    renderGamesGrid();
+    // Przewinięcie na początek sekcji półek jeśli widok wymagał scrolla
+    const container = document.getElementById("dashboardControls");
+    if (container && window.innerWidth <= 768) {
+        container.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+}
+
+function initPaginationEvents() {
+    const btnPrev = document.getElementById("btnPagePrev");
+    const btnNext = document.getElementById("btnPageNext");
+    const trigger = document.getElementById("btnPageDropdown");
+
+    if (btnPrev) {
+        btnPrev.addEventListener("click", () => {
+            goToPage(state.pagination.currentPage - 1);
+        });
+    }
+
+    if (btnNext) {
+        btnNext.addEventListener("click", () => {
+            goToPage(state.pagination.currentPage + 1);
+        });
+    }
+
+    if (trigger) {
+        trigger.addEventListener("click", (e) => {
+            e.stopPropagation();
+            togglePaginationDropdown();
+        });
+    }
+}
+
+function togglePaginationDropdown() {
+    const wrapper = document.getElementById("paginationDropdownWrapper");
+    const menu = document.getElementById("paginationDropdownMenu");
+    const trigger = document.getElementById("btnPageDropdown");
+    if (!wrapper || !menu) return;
+
+    const isOpen = menu.style.display === "flex";
+    if (isOpen) {
+        closePaginationDropdown();
+    } else {
+        closeAllFilterDropdowns();
+        menu.style.display = "flex";
+        wrapper.classList.add("open");
+        if (trigger) trigger.setAttribute("aria-expanded", "true");
+    }
+}
+
+function closePaginationDropdown() {
+    const wrapper = document.getElementById("paginationDropdownWrapper");
+    const menu = document.getElementById("paginationDropdownMenu");
+    const trigger = document.getElementById("btnPageDropdown");
+    if (menu) menu.style.display = "none";
+    if (wrapper) wrapper.classList.remove("open");
+    if (trigger) trigger.setAttribute("aria-expanded", "false");
+}
+
+let touchStartX = 0;
+let touchStartY = 0;
+let touchActive = false;
+
+function attachMobileSwipeToShelves(element) {
+    if (!element || element._swipeAttached) return;
+    element._swipeAttached = true;
+
+    element.addEventListener("touchstart", (e) => {
+        if (e.touches.length !== 1) return;
+        touchStartX = e.touches[0].clientX;
+        touchStartY = e.touches[0].clientY;
+        touchActive = true;
+    }, { passive: true });
+
+    element.addEventListener("touchend", (e) => {
+        if (!touchActive || e.changedTouches.length !== 1) return;
+        touchActive = false;
+
+        const deltaX = e.changedTouches[0].clientX - touchStartX;
+        const deltaY = e.changedTouches[0].clientY - touchStartY;
+
+        // Sprawdzenie, czy gest był horyzontalny (ruch poziomy większy niż pionowy i min. 45px)
+        if (Math.abs(deltaX) > 45 && Math.abs(deltaX) > Math.abs(deltaY) * 1.5) {
+            if (deltaX < 0) {
+                // Swipe w lewo -> następna strona
+                goToPage(state.pagination.currentPage + 1);
+            } else {
+                // Swipe w prawo -> poprzednia strona
+                goToPage(state.pagination.currentPage - 1);
+            }
+        }
+    }, { passive: true });
+
+    element.addEventListener("touchcancel", () => {
+        touchActive = false;
+    }, { passive: true });
 }
 
 function toPastelSpineColor(hex) {
@@ -3122,6 +3364,7 @@ function resetFilters() {
     state.filters.collections.clear();
     state.filters.sort = "updated_desc";
     state.filters.group = "none";
+    state.pagination.currentPage = 1;
 
     document.getElementById("searchInput").value = "";
     document.getElementById("btnClearSearch").style.display = "none";
