@@ -16,6 +16,13 @@ function getUserAvatarPath(userOrSheet) {
     if (!userOrSheet) return "assets/icon.jpg";
     const sheetName = typeof userOrSheet === "string" ? userOrSheet.trim() : (userOrSheet.sheetName || userOrSheet.name || "").trim();
     if (!sheetName) return "assets/icon.jpg";
+    if (sheetName.toLowerCase().endsWith(".png") || sheetName.toLowerCase().endsWith(".jpg") || sheetName.toLowerCase().endsWith(".jpeg")) {
+        return sheetName.startsWith("assets/") ? sheetName : `assets/${sheetName}`;
+    }
+    // Specjalna obsługa rozszerzenia pliku dla zdefiniowanych baz lub domyślne PNG
+    if (sheetName === "Baza gier MF" || sheetName.endsWith("MF")) {
+        return `assets/${sheetName}.jpg`;
+    }
     return `assets/${sheetName}.PNG`;
 }
 

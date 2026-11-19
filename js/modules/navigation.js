@@ -98,7 +98,7 @@ function updateBrowserTab(user = null) {
             faviconEl.href = user.avatar || "assets/icon.jpg";
         }
     } else {
-        document.title = "NKMM Baza Gier - Biblioteka i Statystyki";
+        document.title = "NKMM Baza Gier";
         if (faviconEl) {
             faviconEl.href = "assets/icon.jpg";
         }
@@ -108,6 +108,7 @@ function updateBrowserTab(user = null) {
 function showWelcomeScreen() {
     state.currentScreen = "welcome";
     document.body.classList.add("screen-welcome");
+    document.body.classList.remove("modal-open");
     applyUserTheme(null);
     updateBrowserTab(null);
 
@@ -117,11 +118,13 @@ function showWelcomeScreen() {
     document.getElementById("dashboardScreen").style.display = "none";
 
     renderWelcomeHeads();
+    fetchUsersList(false);
 }
 
 function showDashboardScreen() {
     state.currentScreen = "dashboard";
     document.body.classList.remove("screen-welcome");
+    document.body.classList.remove("modal-open");
 
     document.getElementById("appHeader").style.display = "flex";
     document.getElementById("appFooter").style.display = "block";
@@ -171,7 +174,8 @@ function switchUserProfile(user) {
     document.getElementById("activeProfileName").textContent = user.name;
     document.getElementById("bannerProfileAvatar").src = user.avatar;
     document.getElementById("bannerProfileName").textContent = user.name;
-    document.getElementById("bannerProfileSheet").textContent = user.sheetName;
+    const bannerProfileSheet = document.getElementById("bannerProfileSheet");
+    if (bannerProfileSheet) bannerProfileSheet.textContent = user.sheetName;
 
     // Mobile avatar & code
     const mobileActiveAvatar = document.getElementById("mobileActiveAvatar");
@@ -246,10 +250,11 @@ async function fetchUsersList(forceRefresh = false) {
                 let existing = state.users.find(u => u.code === remoteUser.code);
                 const isMM = remoteUser.code === "MM";
                 const isNK = remoteUser.code === "NK";
+                const isMF = remoteUser.code === "MF";
                 // Główną nazwą jest dokładnie nazwa zakładki w Google Sheets, np. "Baza gier MM"
                 const defaultName = remoteUser.sheetName || (remoteUser.name && remoteUser.name.startsWith("Baza gier ") ? remoteUser.name : `Baza gier ${remoteUser.code}`);
-                const defaultColor = isMM ? "#13a71f" : (isNK ? "#A81214" : (remoteUser.tabColor || "#2a4365"));
-                const defaultHover = isMM ? "#0f8518" : (isNK ? "#860e10" : (remoteUser.tabColor || "#1e314b"));
+                const defaultColor = isMM ? "#13a71f" : (isNK ? "#A81214" : (isMF ? "#2a4365" : (remoteUser.tabColor || "#2a4365")));
+                const defaultHover = isMM ? "#0f8518" : (isNK ? "#860e10" : (isMF ? "#1e314b" : (remoteUser.tabColor || "#1e314b")));
 
                 if (!existing) {
                     existing = {
@@ -263,10 +268,12 @@ async function fetchUsersList(forceRefresh = false) {
                     state.users.push(existing);
                     usersChanged = true;
                 } else {
-                    if (existing.name !== defaultName || existing.color !== defaultColor) {
+                    const avatarPath = getUserAvatarPath(remoteUser.sheetName || defaultName);
+                    if (existing.name !== defaultName || existing.color !== defaultColor || existing.avatar !== avatarPath) {
                         existing.name = defaultName;
                         existing.color = defaultColor;
                         existing.hoverColor = defaultHover;
+                        existing.avatar = avatarPath;
                         usersChanged = true;
                     }
                 }

@@ -393,12 +393,17 @@
 
     .modal-backdrop {
         padding: 8px 6px;
+        align-items: flex-start !important;
+        overflow-y: auto !important;
+        -webkit-overflow-scrolling: touch;
         overscroll-behavior: contain;
     }
 
     .modal-window {
         max-height: calc(100dvh - 16px) !important;
         height: auto;
+        margin-top: 4px !important;
+        margin-bottom: 8px !important;
         border-radius: var(--radius-md);
         display: flex !important;
         flex-direction: column !important;

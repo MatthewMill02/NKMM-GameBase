@@ -8,7 +8,8 @@ function updateProfileBanner() {
     const user = state.currentUser;
     document.getElementById("bannerProfileAvatar").src = user.avatar;
     document.getElementById("bannerProfileName").textContent = user.name;
-    document.getElementById("bannerProfileSheet").textContent = user.sheetName;
+    const bannerProfileSheet = document.getElementById("bannerProfileSheet");
+    if (bannerProfileSheet) bannerProfileSheet.textContent = user.sheetName;
 
     // Obliczanie statystyk
     const totalGames = state.games.length;
@@ -910,6 +911,7 @@ function handleAddUserSubmit(e) {
 
     const apiParams = {
         action: "addUser",
+        user: state.currentUser ? state.currentUser.sheetName : "Baza gier MM",
         userName: sheetName,
         userCode: userCode,
         tabColor: userColor
