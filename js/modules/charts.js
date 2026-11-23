@@ -102,14 +102,14 @@ window.hideChartTooltip = function() {
 };
 
 let chartsState = {
-    donutUser: "ALL", // "ALL" | "MM" | "NK"
+    donutUser: "ALL", // "ALL" | user.code
     donutMetric: "count", // "count" | "hours"
-    allUsersGames: {} // { "MM": [...], "NK": [...] }
+    allUsersGames: {} // { [userCode]: [...] }
 };
 
 async function fetchAllUsersGamesForCharts() {
-    const users = state.users;
-    for (const u of users) {
+    const realUsers = state.users.filter(u => !u.isForum && u.code !== "FORUM");
+    for (const u of realUsers) {
         if (!chartsState.allUsersGames[u.code]) {
             const cached = getCachedGames(u.sheetName);
             if (cached) {
@@ -137,26 +137,29 @@ async function renderChartsComparisonSection() {
 
     await fetchAllUsersGamesForCharts();
 
-    const users = state.users;
-    if (users.length === 0) {
+    const realUsers = state.users.filter(u => !u.isForum && u.code !== "FORUM");
+    if (realUsers.length === 0) {
         container.innerHTML = '<p class="modal-hint">Brak zdefiniowanych profili graczy.</p>';
         return;
     }
 
-    const mmUser = users.find(u => u.code === "MM") || users[0];
-    const nkUser = users.find(u => u.code === "NK") || users[1] || users[0];
+    // Legenda dynamiczna dla wszystkich graczy
+    let legendHtml = '<div class="chart-legend" style="margin-bottom: 16px; padding: 10px 14px; background: var(--color-bg); border-radius: 4px; border: 1px solid var(--color-border); display: flex; flex-wrap: wrap; gap: 14px;">';
+    realUsers.forEach(u => {
+        const uGames = chartsState.allUsersGames[u.code] || [];
+        const uColor = u.color || "#2a4365";
+        legendHtml += `<div class="legend-item"><span class="legend-dot" style="background-color: ${uColor};"></span><strong>${escapeHtml(u.name)} (${uGames.length} gier)</strong></div>`;
+    });
+    legendHtml += '</div>';
 
-    const mmGames = chartsState.allUsersGames[mmUser.code] || [];
-    const nkGames = chartsState.allUsersGames[nkUser.code] || [];
-
-    const mmColor = mmUser.color || "#13a71f";
-    const nkColor = nkUser.color || "#A81214";
+    // Opcje wyboru użytkownika do wykresu kołowego
+    let userOptionsHtml = `<option value="ALL" ${chartsState.donutUser === "ALL" ? "selected" : ""}>Wszyscy gracze</option>`;
+    realUsers.forEach(u => {
+        userOptionsHtml += `<option value="${u.code}" ${chartsState.donutUser === u.code ? "selected" : ""}>${escapeHtml(u.name)}</option>`;
+    });
 
     let html = `
-        <div class="chart-legend" style="margin-bottom: 16px; padding: 10px 14px; background: var(--color-bg); border-radius: 4px; border: 1px solid var(--color-border);">
-            <div class="legend-item"><span class="legend-dot" style="background-color: ${mmColor};"></span><strong>${escapeHtml(mmUser.name)} (${mmGames.length} gier)</strong></div>
-            <div class="legend-item"><span class="legend-dot" style="background-color: ${nkColor};"></span><strong>${escapeHtml(nkUser.name)} (${nkGames.length} gier)</strong></div>
-        </div>
+        ${legendHtml}
 
         <div class="charts-grid">
             <!-- WYKRES 1: SŁUPKOWY - PODZIAŁ WEDŁUG STANÓW GRY -->
@@ -165,7 +168,7 @@ async function renderChartsComparisonSection() {
                     <h3>1. Stan gier</h3>
                 </div>
                 <div id="chartStatusContent" class="chart-bars-list">
-                    ${renderStatusComparisonBars(mmGames, nkGames, mmUser, nkUser)}
+                    ${renderStatusComparisonBars(realUsers)}
                 </div>
             </div>
 
@@ -175,9 +178,7 @@ async function renderChartsComparisonSection() {
                     <h3>2. Udział platform</h3>
                     <div class="chart-controls-bar">
                         <select id="chartDonutUserSelect" class="chart-select">
-                            <option value="ALL" ${chartsState.donutUser === "ALL" ? "selected" : ""}>Wszyscy gracze</option>
-                            <option value="${mmUser.code}" ${chartsState.donutUser === mmUser.code ? "selected" : ""}>${escapeHtml(mmUser.name)}</option>
-                            <option value="${nkUser.code}" ${chartsState.donutUser === nkUser.code ? "selected" : ""}>${escapeHtml(nkUser.name)}</option>
+                            ${userOptionsHtml}
                         </select>
                         <select id="chartDonutMetricSelect" class="chart-select">
                             <option value="count" ${chartsState.donutMetric === "count" ? "selected" : ""}>Liczba gier</option>
@@ -186,7 +187,7 @@ async function renderChartsComparisonSection() {
                     </div>
                 </div>
                 <div id="chartDonutContainer">
-                    ${renderPlatformDonutChart(mmGames, nkGames, mmUser, nkUser)}
+                    ${renderPlatformDonutChart(realUsers)}
                 </div>
             </div>
 
@@ -196,7 +197,7 @@ async function renderChartsComparisonSection() {
                     <h3>3. Oś czasu ukończeń</h3>
                 </div>
                 <div id="chartLineContainer">
-                    ${renderCompletionsTimelineChart(mmGames, nkGames, mmUser, nkUser)}
+                    ${renderCompletionsTimelineChart(realUsers)}
                 </div>
             </div>
 
@@ -206,7 +207,7 @@ async function renderChartsComparisonSection() {
                     <h3>4. Rozkład ocen</h3>
                 </div>
                 <div id="chartRatingsContent" class="chart-bars-list">
-                    ${renderRatingsComparisonBars(mmGames, nkGames, mmUser, nkUser)}
+                    ${renderRatingsComparisonBars(realUsers)}
                 </div>
             </div>
         </div>
@@ -222,7 +223,7 @@ async function renderChartsComparisonSection() {
         userSelect.addEventListener("change", (e) => {
             chartsState.donutUser = e.target.value;
             const content = document.getElementById("chartDonutContainer");
-            if (content) content.innerHTML = renderPlatformDonutChart(mmGames, nkGames, mmUser, nkUser);
+            if (content) content.innerHTML = renderPlatformDonutChart(realUsers);
         });
     }
 
@@ -230,77 +231,90 @@ async function renderChartsComparisonSection() {
         metricSelect.addEventListener("change", (e) => {
             chartsState.donutMetric = e.target.value;
             const content = document.getElementById("chartDonutContainer");
-            if (content) content.innerHTML = renderPlatformDonutChart(mmGames, nkGames, mmUser, nkUser);
+            if (content) content.innerHTML = renderPlatformDonutChart(realUsers);
         });
     }
 }
 
-// 1. WYKRES SŁUPKOWY - STANY GIER
-function renderStatusComparisonBars(mmGames, nkGames, mmUser, nkUser) {
+// 1. WYKRES SŁUPKOWY - STANY GIER (DYNAMICZNIE DLA N GRACZY)
+function renderStatusComparisonBars(users) {
     const statuses = new Set();
-    mmGames.forEach(g => { if (g["Stan"]) statuses.add(g["Stan"].trim()); });
-    nkGames.forEach(g => { if (g["Stan"]) statuses.add(g["Stan"].trim()); });
+    users.forEach(u => {
+        const uGames = chartsState.allUsersGames[u.code] || [];
+        uGames.forEach(g => { if (g["Stan"]) statuses.add(g["Stan"].trim()); });
+    });
 
     const statusList = Array.from(statuses).sort();
     if (statusList.length === 0) return '<p class="modal-hint">Brak danych o stanach gier.</p>';
 
     let maxVal = 1;
     const statsData = statusList.map(st => {
-        const mmCount = mmGames.filter(g => (g["Stan"] || "").trim() === st).length;
-        const nkCount = nkGames.filter(g => (g["Stan"] || "").trim() === st).length;
-        if (mmCount > maxVal) maxVal = mmCount;
-        if (nkCount > maxVal) maxVal = nkCount;
-        return { status: st, mm: mmCount, nk: nkCount };
+        const row = { status: st, counts: {}, totals: 0 };
+        users.forEach(u => {
+            const uGames = chartsState.allUsersGames[u.code] || [];
+            const count = uGames.filter(g => (g["Stan"] || "").trim() === st).length;
+            row.counts[u.code] = count;
+            row.totals += count;
+            if (count > maxVal) maxVal = count;
+        });
+        return row;
     });
 
     return statsData.map(item => {
-        const mmPct = Math.round((item.mm / maxVal) * 100);
-        const nkPct = Math.round((item.nk / maxVal) * 100);
-        const mmTotalPct = mmGames.length > 0 ? ((item.mm / mmGames.length) * 100).toFixed(1) : "0";
-        const nkTotalPct = nkGames.length > 0 ? ((item.nk / nkGames.length) * 100).toFixed(1) : "0";
-
-        const tooltipRows = [
-            { label: `${mmUser.name}`, value: `${item.mm} gier (${mmTotalPct}%)`, color: mmUser.color },
-            { label: `${nkUser.name}`, value: `${item.nk} gier (${nkTotalPct}%)`, color: nkUser.color },
-            { label: "Łącznie", value: `${item.mm + item.nk} gier`, color: "#ffffff" }
-        ];
+        const tooltipRows = [];
+        users.forEach(u => {
+            const uGames = chartsState.allUsersGames[u.code] || [];
+            const count = item.counts[u.code] || 0;
+            const totalPct = uGames.length > 0 ? ((count / uGames.length) * 100).toFixed(1) : "0";
+            tooltipRows.push({
+                label: u.name,
+                value: `${count} gier (${totalPct}%)`,
+                color: u.color || "#2a4365"
+            });
+        });
+        tooltipRows.push({ label: "Łącznie", value: `${item.totals} gier`, color: "#ffffff" });
         const rowsEncoded = encodeURIComponent(JSON.stringify(tooltipRows));
+
+        const barsHtml = users.map(u => {
+            const count = item.counts[u.code] || 0;
+            const pct = Math.round((count / maxVal) * 100);
+            return `
+                <div class="chart-single-bar-container" title="${escapeHtml(u.name)}: ${count}">
+                    <div class="chart-single-bar-track">
+                        <div class="chart-single-bar-fill" style="width: ${Math.max(pct, 3)}%; background-color: ${u.color || '#2a4365'};"></div>
+                    </div>
+                    <span class="chart-single-bar-val">${count}</span>
+                </div>
+            `;
+        }).join("");
 
         return `
             <div class="chart-dual-row chart-interactive-item" data-tooltip-header="${escapeHtml(item.status)}" data-tooltip-rows="${rowsEncoded}">
                 <span class="chart-bar-label" title="${escapeHtml(item.status)}">${escapeHtml(item.status)}</span>
                 <div class="chart-dual-bars">
-                    <div class="chart-single-bar-container">
-                        <div class="chart-single-bar-track">
-                            <div class="chart-single-bar-fill" style="width: ${Math.max(mmPct, 3)}%; background-color: ${mmUser.color || '#13a71f'};"></div>
-                        </div>
-                        <span class="chart-single-bar-val">${item.mm}</span>
-                    </div>
-                    <div class="chart-single-bar-container">
-                        <div class="chart-single-bar-track">
-                            <div class="chart-single-bar-fill" style="width: ${Math.max(nkPct, 3)}%; background-color: ${nkUser.color || '#A81214'};"></div>
-                        </div>
-                        <span class="chart-single-bar-val">${item.nk}</span>
-                    </div>
+                    ${barsHtml}
                 </div>
             </div>
         `;
     }).join("");
 }
 
-// 2. WYKRES KOŁOWY / PIERŚCIENIOWY SVG - PLATFORMY
-function renderPlatformDonutChart(mmGames, nkGames, mmUser, nkUser) {
+// 2. WYKRES KOŁOWY / PIERŚCIENIOWY SVG - PLATFORMY (DYNAMICZNIE DLA N GRACZY)
+function renderPlatformDonutChart(users) {
     let targetGames = [];
     let titlePrefix = "Wszyscy gracze";
 
-    if (chartsState.donutUser === mmUser.code) {
-        targetGames = mmGames;
-        titlePrefix = mmUser.name;
-    } else if (chartsState.donutUser === nkUser.code) {
-        targetGames = nkGames;
-        titlePrefix = nkUser.name;
+    if (chartsState.donutUser === "ALL") {
+        users.forEach(u => {
+            const uGames = chartsState.allUsersGames[u.code] || [];
+            targetGames = targetGames.concat(uGames);
+        });
     } else {
-        targetGames = [...mmGames, ...nkGames];
+        const chosenUser = users.find(u => u.code === chartsState.donutUser);
+        if (chosenUser) {
+            targetGames = chartsState.allUsersGames[chosenUser.code] || [];
+            titlePrefix = chosenUser.name;
+        }
     }
 
     if (targetGames.length === 0) return '<p class="modal-hint">Brak danych gier dla wybranego profilu.</p>';
@@ -323,7 +337,6 @@ function renderPlatformDonutChart(mmGames, nkGames, mmUser, nkUser) {
     const totalVal = entries.reduce((acc, curr) => acc + curr.val, 0);
     if (totalVal === 0) return '<p class="modal-hint">Brak danych dla wykresu kołowego.</p>';
 
-    // Kolory pastelowe dla platform
     const platformPalette = [
         "#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6",
         "#ec4899", "#06b6d4", "#14b8a6", "#84cc16", "#eab308"
@@ -398,8 +411,8 @@ function renderPlatformDonutChart(mmGames, nkGames, mmUser, nkUser) {
     `;
 }
 
-// 3. WYKRES LINIOWY SVG - OŚ CZASU UKOŃCZEŃ
-function renderCompletionsTimelineChart(mmGames, nkGames, mmUser, nkUser) {
+// 3. WYKRES LINIOWY SVG - OŚ CZASU UKOŃCZEŃ (DYNAMICZNIE DLA N GRACZY)
+function renderCompletionsTimelineChart(users) {
     const parseYearMonth = (game) => {
         const d = (game["Data ukończenia"] || "").trim();
         if (!d) return null;
@@ -416,41 +429,41 @@ function renderCompletionsTimelineChart(mmGames, nkGames, mmUser, nkUser) {
 
     const timeBuckets = new Map();
 
-    const processGames = (games, isMM) => {
+    users.forEach(u => {
+        const games = chartsState.allUsersGames[u.code] || [];
         games.forEach(g => {
             const ym = parseYearMonth(g);
             if (!ym) return;
             if (!timeBuckets.has(ym)) {
-                timeBuckets.set(ym, { ym: ym, mm: 0, nk: 0, mmTitles: [], nkTitles: [] });
+                const initBucket = { ym: ym, userCounts: {}, userTitles: {} };
+                users.forEach(us => {
+                    initBucket.userCounts[us.code] = 0;
+                    initBucket.userTitles[us.code] = [];
+                });
+                timeBuckets.set(ym, initBucket);
             }
             const bucket = timeBuckets.get(ym);
-            if (isMM) {
-                bucket.mm++;
-                if (bucket.mmTitles.length < 3) bucket.mmTitles.push(g["Tytuł"]);
-            } else {
-                bucket.nk++;
-                if (bucket.nkTitles.length < 3) bucket.nkTitles.push(g["Tytuł"]);
+            bucket.userCounts[u.code] = (bucket.userCounts[u.code] || 0) + 1;
+            if (!bucket.userTitles[u.code]) bucket.userTitles[u.code] = [];
+            if (bucket.userTitles[u.code].length < 3) {
+                bucket.userTitles[u.code].push(g["Tytuł"]);
             }
         });
-    };
-
-    processGames(mmGames, true);
-    processGames(nkGames, false);
+    });
 
     const sortedBuckets = Array.from(timeBuckets.values()).sort((a, b) => a.ym.localeCompare(b.ym));
-
-    // Jeśli brak danych z datami, generujemy poglądowe przedziały
     if (sortedBuckets.length === 0) {
         return '<p class="modal-hint">Brak dat ukończenia gier w bazie do wygenerowania osi czasu.</p>';
     }
 
-    // Ograniczamy do ostatnich 12 okresów dla przejrzystości
     const displayBuckets = sortedBuckets.slice(-12);
 
     let maxCount = 1;
     displayBuckets.forEach(b => {
-        if (b.mm > maxCount) maxCount = b.mm;
-        if (b.nk > maxCount) maxCount = b.nk;
+        users.forEach(u => {
+            const cnt = b.userCounts[u.code] || 0;
+            if (cnt > maxCount) maxCount = cnt;
+        });
     });
 
     const svgWidth = 500;
@@ -464,15 +477,9 @@ function renderCompletionsTimelineChart(mmGames, nkGames, mmUser, nkUser) {
     const plotHeight = svgHeight - paddingTop - paddingBottom;
 
     const stepX = displayBuckets.length > 1 ? plotWidth / (displayBuckets.length - 1) : plotWidth / 2;
-
     const getY = (val) => paddingTop + plotHeight - ((val / maxCount) * plotHeight);
 
-    let pathMM = "";
-    let pathNK = "";
-    let pointsHtml = "";
     let gridLinesHtml = "";
-
-    // Linie poziome siatki
     for (let i = 0; i <= 3; i++) {
         const gridY = paddingTop + (plotHeight / 3) * i;
         const gridVal = Math.round(maxCount - (maxCount / 3) * i);
@@ -482,57 +489,56 @@ function renderCompletionsTimelineChart(mmGames, nkGames, mmUser, nkUser) {
         `;
     }
 
+    const userPaths = {};
+    users.forEach(u => { userPaths[u.code] = ""; });
+    let pointsHtml = "";
+
     displayBuckets.forEach((b, idx) => {
         const x = paddingLeft + idx * stepX;
-        const yMM = getY(b.mm);
-        const yNK = getY(b.nk);
 
-        if (idx === 0) {
-            pathMM += `M ${x} ${yMM}`;
-            pathNK += `M ${x} ${yNK}`;
-        } else {
-            pathMM += ` L ${x} ${yMM}`;
-            pathNK += ` L ${x} ${yNK}`;
-        }
-
-        // Etykieta osi X
         gridLinesHtml += `
             <text x="${x}" y="${svgHeight - 10}" text-anchor="middle" class="chart-axis-label">${b.ym.substring(2)}</text>
         `;
 
-        // Punkty danych (kropki)
-        const tooltipRowsMM = [
-            { label: `${mmUser.name}`, value: `${b.mm} ukończonych`, color: mmUser.color },
-            { label: "Przykłady", value: b.mmTitles.join(", ") || "-", color: "#ffffff" }
-        ];
-        const rowsMMEncoded = encodeURIComponent(JSON.stringify(tooltipRowsMM));
+        users.forEach(u => {
+            const cnt = b.userCounts[u.code] || 0;
+            const y = getY(cnt);
+            if (idx === 0) {
+                userPaths[u.code] += `M ${x} ${y}`;
+            } else {
+                userPaths[u.code] += ` L ${x} ${y}`;
+            }
 
-        const tooltipRowsNK = [
-            { label: `${nkUser.name}`, value: `${b.nk} ukończonych`, color: nkUser.color },
-            { label: "Przykłady", value: b.nkTitles.join(", ") || "-", color: "#ffffff" }
-        ];
-        const rowsNKEncoded = encodeURIComponent(JSON.stringify(tooltipRowsNK));
+            const tooltipRows = [
+                { label: u.name, value: `${cnt} ukończonych`, color: u.color || "#2a4365" },
+                { label: "Przykłady", value: (b.userTitles[u.code] || []).join(", ") || "-", color: "#ffffff" }
+            ];
+            const rowsEncoded = encodeURIComponent(JSON.stringify(tooltipRows));
 
-        pointsHtml += `
-            <circle cx="${x}" cy="${yMM}" r="5" fill="${mmUser.color || '#13a71f'}" stroke="#ffffff" stroke-width="1.5" class="chart-data-point" data-tooltip-header="${escapeHtml(b.ym)} (${escapeHtml(mmUser.name)})" data-tooltip-rows="${rowsMMEncoded}"></circle>
-            <circle cx="${x}" cy="${yNK}" r="5" fill="${nkUser.color || '#A81214'}" stroke="#ffffff" stroke-width="1.5" class="chart-data-point" data-tooltip-header="${escapeHtml(b.ym)} (${escapeHtml(nkUser.name)})" data-tooltip-rows="${rowsNKEncoded}"></circle>
-        `;
+            pointsHtml += `
+                <circle cx="${x}" cy="${y}" r="5" fill="${u.color || '#2a4365'}" stroke="#ffffff" stroke-width="1.5" class="chart-data-point" data-tooltip-header="${escapeHtml(b.ym)} (${escapeHtml(u.name)})" data-tooltip-rows="${rowsEncoded}"></circle>
+            `;
+        });
+    });
+
+    let pathsHtml = "";
+    users.forEach(u => {
+        pathsHtml += `<path d="${userPaths[u.code]}" stroke="${u.color || '#2a4365'}" class="chart-line-path"></path>`;
     });
 
     return `
         <div style="width: 100%; overflow: hidden;">
             <svg viewBox="0 0 ${svgWidth} ${svgHeight}" class="line-chart-svg" style="width: 100%; height: auto; max-width: 100%; display: block;">
                 ${gridLinesHtml}
-                <path d="${pathMM}" stroke="${mmUser.color || '#13a71f'}" class="chart-line-path"></path>
-                <path d="${pathNK}" stroke="${nkUser.color || '#A81214'}" class="chart-line-path"></path>
+                ${pathsHtml}
                 ${pointsHtml}
             </svg>
         </div>
     `;
 }
 
-// 4. WYKRES SŁUPKOWY / HISTOGRAM OCEN
-function renderRatingsComparisonBars(mmGames, nkGames, mmUser, nkUser) {
+// 4. WYKRES SŁUPKOWY / HISTOGRAM OCEN (DYNAMICZNIE DLA N GRACZY)
+function renderRatingsComparisonBars(users) {
     const buckets = [
         { label: "9.0 - 10.0 (Wybitne)", min: 9.0, max: 10.0 },
         { label: "7.0 - 8.9 (Dobre)", min: 7.0, max: 8.99 },
@@ -543,51 +549,54 @@ function renderRatingsComparisonBars(mmGames, nkGames, mmUser, nkUser) {
 
     let maxVal = 1;
     const data = buckets.map(b => {
-        const countMM = mmGames.filter(g => {
-            const r = parseFloat(g["Ocena gry"]);
-            if (isNaN(r) || r <= 0) return b.min === -1;
-            return b.min !== -1 && r >= b.min && r <= b.max;
-        }).length;
+        const counts = {};
+        let total = 0;
+        users.forEach(u => {
+            const uGames = chartsState.allUsersGames[u.code] || [];
+            const count = uGames.filter(g => {
+                const r = parseFloat(g["Ocena gry"]);
+                if (isNaN(r) || r <= 0) return b.min === -1;
+                return b.min !== -1 && r >= b.min && r <= b.max;
+            }).length;
+            counts[u.code] = count;
+            total += count;
+            if (count > maxVal) maxVal = count;
+        });
 
-        const countNK = nkGames.filter(g => {
-            const r = parseFloat(g["Ocena gry"]);
-            if (isNaN(r) || r <= 0) return b.min === -1;
-            return b.min !== -1 && r >= b.min && r <= b.max;
-        }).length;
-
-        if (countMM > maxVal) maxVal = countMM;
-        if (countNK > maxVal) maxVal = countNK;
-
-        return { label: b.label, mm: countMM, nk: countNK };
+        return { label: b.label, counts: counts, total: total };
     });
 
     return data.map(item => {
-        const mmPct = Math.round((item.mm / maxVal) * 100);
-        const nkPct = Math.round((item.nk / maxVal) * 100);
-
-        const tooltipRows = [
-            { label: `${mmUser.name}`, value: `${item.mm} gier`, color: mmUser.color },
-            { label: `${nkUser.name}`, value: `${item.nk} gier`, color: nkUser.color },
-            { label: "Łącznie", value: `${item.mm + item.nk} gier`, color: "#ffffff" }
-        ];
+        const tooltipRows = [];
+        users.forEach(u => {
+            const count = item.counts[u.code] || 0;
+            tooltipRows.push({
+                label: u.name,
+                value: `${count} gier`,
+                color: u.color || "#2a4365"
+            });
+        });
+        tooltipRows.push({ label: "Łącznie", value: `${item.total} gier`, color: "#ffffff" });
         const rowsEncoded = encodeURIComponent(JSON.stringify(tooltipRows));
+
+        const barsHtml = users.map(u => {
+            const count = item.counts[u.code] || 0;
+            const pct = Math.round((count / maxVal) * 100);
+            return `
+                <div class="chart-single-bar-container" title="${escapeHtml(u.name)}: ${count}">
+                    <div class="chart-single-bar-track">
+                        <div class="chart-single-bar-fill" style="width: ${Math.max(pct, 3)}%; background-color: ${u.color || '#2a4365'};"></div>
+                    </div>
+                    <span class="chart-single-bar-val">${count}</span>
+                </div>
+            `;
+        }).join("");
 
         return `
             <div class="chart-dual-row chart-interactive-item" data-tooltip-header="${escapeHtml(item.label)}" data-tooltip-rows="${rowsEncoded}">
                 <span class="chart-bar-label" style="font-size: 14px;">${escapeHtml(item.label)}</span>
                 <div class="chart-dual-bars">
-                    <div class="chart-single-bar-container">
-                        <div class="chart-single-bar-track">
-                            <div class="chart-single-bar-fill" style="width: ${Math.max(mmPct, 3)}%; background-color: ${mmUser.color || '#13a71f'};"></div>
-                        </div>
-                        <span class="chart-single-bar-val">${item.mm}</span>
-                    </div>
-                    <div class="chart-single-bar-container">
-                        <div class="chart-single-bar-track">
-                            <div class="chart-single-bar-fill" style="width: ${Math.max(nkPct, 3)}%; background-color: ${nkUser.color || '#A81214'};"></div>
-                        </div>
-                        <span class="chart-single-bar-val">${item.nk}</span>
-                    </div>
+                    ${barsHtml}
                 </div>
             </div>
         `;

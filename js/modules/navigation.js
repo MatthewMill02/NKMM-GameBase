@@ -59,12 +59,15 @@ function renderWelcomeHeads() {
 
         const card = document.createElement("div");
         card.className = "scatter-head-card";
+        if (user.isForum) {
+            card.classList.add("scatter-head-forum");
+        }
         card.style.left = `${x}px`;
         card.style.top = `${y}px`;
         if (user.color) {
             card.style.borderTopColor = user.color;
         }
-        card.setAttribute("title", `Kliknij, aby otworzyć bazę gracza: ${user.name}`);
+        card.setAttribute("title", user.isForum ? "Kliknij, aby otworzyć Forum: ostatnie 50 gier wszystkich graczy" : `Kliknij, aby otworzyć bazę gracza: ${user.name}`);
 
         card.innerHTML = `
             <img src="${user.avatar}" alt="${user.code}" class="scatter-head-img" onerror="this.src='assets/icon.jpg'">
@@ -80,7 +83,10 @@ function renderWelcomeHeads() {
 }
 
 function applyUserTheme(user) {
-    if (user && user.color) {
+    if (user && user.isForum) {
+        document.documentElement.style.setProperty("--color-primary", user.color || "#d4af37");
+        document.documentElement.style.setProperty("--color-primary-hover", user.hoverColor || "#b89628");
+    } else if (user && user.color) {
         document.documentElement.style.setProperty("--color-primary", user.color);
         document.documentElement.style.setProperty("--color-primary-hover", user.hoverColor || user.color);
     } else {
@@ -117,6 +123,7 @@ function showWelcomeScreen() {
     document.getElementById("welcomeScreen").style.display = "flex";
     document.getElementById("dashboardScreen").style.display = "none";
 
+    ensureForumProfile();
     renderWelcomeHeads();
     fetchUsersList(false);
 }
@@ -235,10 +242,29 @@ function renderProfileDropdownMenu() {
     }
 }
 
+function ensureForumProfile() {
+    const forumUser = {
+        code: "FORUM",
+        name: "Forum",
+        sheetName: "FORUM",
+        avatar: "assets/icon.jpg",
+        color: "#d4af37",
+        hoverColor: "#b89628",
+        isForum: true
+    };
+
+    const forumIdx = state.users.findIndex(u => u.isForum || u.code === "FORUM");
+    if (forumIdx === -1) {
+        state.users.unshift(forumUser);
+    } else {
+        state.users[forumIdx] = { ...state.users[forumIdx], ...forumUser };
+    }
+}
+
 async function fetchUsersList(forceRefresh = false) {
-    if (!forceRefresh && state.cache.users) {
-        state.users = state.cache.users;
-        return;
+    const subtitleEl = document.getElementById("welcomeSubtitle");
+    if (subtitleEl) {
+        subtitleEl.innerHTML = 'Wczytywanie profili gracza<span class="loading-dots"></span>';
     }
 
     try {
@@ -279,9 +305,12 @@ async function fetchUsersList(forceRefresh = false) {
                 }
             });
 
+            ensureForumProfile();
+
             state.cache.users = state.users;
             try {
                 sessionStorage.setItem(CACHE_KEYS.USERS, JSON.stringify(state.users));
+                localStorage.setItem(CACHE_KEYS.USERS, JSON.stringify(state.users));
             } catch (e) {}
 
             // Re-renderuj tylko jeśli lista użytkowników rzeczywiście uległa zmianie
@@ -302,6 +331,10 @@ async function fetchUsersList(forceRefresh = false) {
         }
     } catch (e) {
         console.warn("Użyto lokalnej konfiguracji użytkowników.");
+    } finally {
+        if (subtitleEl) {
+            subtitleEl.textContent = "Wybierz profil gracza";
+        }
     }
 }
 

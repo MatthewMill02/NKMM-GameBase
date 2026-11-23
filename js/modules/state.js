@@ -31,10 +31,7 @@ const state = {
     currentScreen: "welcome", // "welcome" | "dashboard"
     currentTab: "tabViewGames", // "tabViewGames" | "tabViewCharts"
     currentUser: null,
-    users: [
-        { code: "MM", name: "Baza gier MM", sheetName: "Baza gier MM", avatar: "assets/Baza gier MM.PNG", color: "#13a71f", hoverColor: "#0f8518" },
-        { code: "NK", name: "Baza gier NK", sheetName: "Baza gier NK", avatar: "assets/Baza gier NK.PNG", color: "#A81214", hoverColor: "#860e10" }
-    ],
+    users: [],
     games: [],
     // Pamięć podręczna w ramach sesji
     cache: {

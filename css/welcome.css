@@ -43,6 +43,23 @@ body.screen-welcome {
     color: var(--color-text-muted);
 }
 
+.loading-dots::after {
+    display: inline-block;
+    content: "...";
+    width: 1.5em;
+    text-align: left;
+    vertical-align: bottom;
+    animation: loadingDotsAnim 1.5s steps(4, end) infinite;
+}
+
+@keyframes loadingDotsAnim {
+    0% { content: ""; }
+    25% { content: "."; }
+    50% { content: ".."; }
+    75% { content: "..."; }
+    100% { content: ""; }
+}
+
 .heads-scatter-container {
     position: absolute;
     top: 0;
@@ -72,6 +89,18 @@ body.screen-welcome {
 .scatter-head-card:hover {
     transform: scale(1.08);
     box-shadow: 0 6px 20px rgba(0, 0, 0, 0.5);
+}
+
+/* Złota ramka dla profilu Forum */
+.scatter-head-card.scatter-head-forum {
+    border: 2px solid #d4af37 !important;
+    border-top: 4px solid #d4af37 !important;
+    box-shadow: 0 4px 18px rgba(212, 175, 55, 0.4);
+}
+
+.scatter-head-card.scatter-head-forum:hover {
+    box-shadow: 0 8px 24px rgba(212, 175, 55, 0.7);
+    border-color: #ffd700 !important;
 }
 
 .scatter-head-img {

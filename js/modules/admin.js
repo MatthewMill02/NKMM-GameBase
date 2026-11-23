@@ -927,6 +927,7 @@ function handleAddUserSubmit(e) {
                 invalidateSettingsCache();
                 try {
                     sessionStorage.setItem(CACHE_KEYS.USERS, JSON.stringify(state.users));
+                    localStorage.setItem(CACHE_KEYS.USERS, JSON.stringify(state.users));
                 } catch (e) {}
             }
             return res;

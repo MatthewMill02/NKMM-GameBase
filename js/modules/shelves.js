@@ -309,6 +309,12 @@ async function loadGamesForUser(sheetName, forceRefresh = false) {
     const emptyResults = document.getElementById("emptyResultsMessage");
     const resultsCount = document.getElementById("resultsCount");
 
+    // Obsługa profilu FORUM: 50 ostatnich gier od WSZYSTKICH graczy
+    if (state.currentUser && (state.currentUser.isForum || sheetName === "FORUM")) {
+        await loadGamesForForum(forceRefresh);
+        return;
+    }
+
     if (!forceRefresh) {
         const cached = getCachedGames(sheetName);
         if (cached !== null) {
@@ -366,6 +372,96 @@ async function loadGamesForUser(sheetName, forceRefresh = false) {
         console.error("[NKMM Baza Gier] Błąd sieciowy / wyjątek w loadGamesForUser:", error);
         if (emptyResults) {
             emptyResults.innerHTML = `<p style="color: var(--color-danger);">Błąd sieciowy podczas pobierania danych. <button type="button" class="btn-link btn-reload-games" data-sheet="${escapeHtml(sheetName)}" style="color: var(--color-primary); font-weight: bold; margin-left: 8px;">[Spróbuj ponownie]</button></p>`;
+            emptyResults.style.display = "block";
+        }
+        if (skeletonLoader) skeletonLoader.style.display = "none";
+    }
+}
+
+async function loadGamesForForum(forceRefresh = false) {
+    const skeletonLoader = document.getElementById("skeletonLoader");
+    const shelvesContainer = document.getElementById("gamesShelvesContainer");
+    const emptyResults = document.getElementById("emptyResultsMessage");
+    const resultsCount = document.getElementById("resultsCount");
+
+    if (!forceRefresh) {
+        const cached = getCachedGames("FORUM");
+        if (cached !== null) {
+            state.games = cached;
+            updateProfileBanner();
+            populateFilterOptions();
+            await fetchSettingsAndStats(false);
+            renderGamesShelves();
+            renderProfileShowcase();
+            return;
+        }
+    }
+
+    state.games = [];
+    document.getElementById("statTotalGames").textContent = "-";
+    document.getElementById("statCompletedGames").textContent = "-";
+    document.getElementById("statTotalHours").textContent = "-";
+    document.getElementById("statAvgRating").textContent = "-";
+    const showcaseContainer = document.getElementById("showcaseShelfContainer") || document.getElementById("showcaseGrid");
+    if (showcaseContainer) showcaseContainer.innerHTML = '<p class="showcase-empty-hint">Wczytywanie gabloty...</p>';
+
+    if (skeletonLoader) skeletonLoader.style.display = "grid";
+    if (shelvesContainer) shelvesContainer.style.display = "none";
+    if (emptyResults) emptyResults.style.display = "none";
+    if (resultsCount) resultsCount.textContent = "Pobieranie ostatnich gier ze wszystkich baz...";
+
+    try {
+        const realUsers = state.users.filter(u => !u.isForum && u.code !== "FORUM");
+        const fetchPromises = realUsers.map(async (u) => {
+            let userGames = getCachedGames(u.sheetName);
+            if (!userGames || forceRefresh) {
+                try {
+                    const resp = await sendApiRequestWithRetry({ action: "getAllGames", user: u.sheetName }, null, 2);
+                    if (resp && resp.status === "success" && Array.isArray(resp.data)) {
+                        userGames = resp.data;
+                        setCachedGames(u.sheetName, userGames);
+                    }
+                } catch (err) {
+                    console.warn("Błąd pobierania gier dla użytkownika:", u.name, err);
+                }
+            }
+            if (!Array.isArray(userGames)) userGames = [];
+            // Oznaczamy gry właścicielem (kod, nazwa, kolor gracza)
+            return userGames.map(g => ({
+                ...g,
+                _userCode: u.code,
+                _userName: u.name,
+                _userColor: u.color,
+                _userHoverColor: u.hoverColor,
+                _userAvatar: u.avatar
+            }));
+        });
+
+        const results = await Promise.all(fetchPromises);
+        let allGames = results.flat();
+
+        // Sortujemy po dacie aktualizacji (malejąco) i bierzemy ostatnie 50 gier
+        allGames.sort((a, b) => {
+            const dateA = a["Aktualizacja"] || a["Akualizacja"] || a["Data modyfikacji"] || "";
+            const dateB = b["Aktualizacja"] || b["Akualizacja"] || b["Data modyfikacji"] || "";
+            const comp = String(dateB).localeCompare(String(dateA));
+            if (comp !== 0) return comp;
+            return (a["Tytuł"] || "").localeCompare(b["Tytuł"] || "");
+        });
+
+        const recentGames = allGames.slice(0, 50);
+        state.games = recentGames;
+        setCachedGames("FORUM", recentGames);
+
+        updateProfileBanner();
+        populateFilterOptions();
+        await fetchSettingsAndStats(false);
+        renderGamesShelves();
+        renderProfileShowcase();
+    } catch (error) {
+        console.error("Błąd podczas ładowania Forum:", error);
+        if (emptyResults) {
+            emptyResults.innerHTML = `<p style="color: var(--color-danger);">Błąd podczas pobierania gier Forum. <button type="button" class="btn-link btn-reload-games" data-sheet="FORUM" style="color: var(--color-primary); font-weight: bold; margin-left: 8px;">[Spróbuj ponownie]</button></p>`;
             emptyResults.style.display = "block";
         }
         if (skeletonLoader) skeletonLoader.style.display = "none";
@@ -915,38 +1011,24 @@ function hideMcTooltip() {
 
 function getSpineColorForGame(game) {
     if (!game) return "#2f3e52";
-    const status = (game["Stan"] || "").toString().trim().toLowerCase();
+
+    // Jeśli gra ma przypisany bezpośredni kolor profilu (np. w widoku Forum)
+    if (game._userColor) {
+        return game._userColor;
+    }
+
+    // Kolor profilu aktualnego gracza (nowa zasada: kolor okładek zależy od koloru profilu)
+    if (state.currentUser && state.currentUser.color) {
+        return state.currentUser.color;
+    }
+
     const userCode = state.currentUser ? (state.currentUser.code || "").toString().trim().toUpperCase() : "";
-
-    // 1. Sprawdzenie w aktualnie załadowanych ustawieniach ze słownika Stanów
-    if (status && state.settings && state.settings.stan && Array.isArray(state.settings.stan.rows)) {
-        const matchingRow = state.settings.stan.rows.find(r => {
-            const rowStan = (r["Stan"] || r["stan"] || "").toString().trim().toLowerCase();
-            return rowStan === status;
-        });
-        if (matchingRow) {
-            // Najpierw szukamy kolumny dedykowanej dla aktualnego gracza (np. "Kolor MM", "Kolor NK")
-            if (userCode) {
-                const userKey = Object.keys(matchingRow).find(k => k.toLowerCase() === `kolor ${userCode.toLowerCase()}`);
-                if (userKey && matchingRow[userKey] && matchingRow[userKey].toString().trim()) {
-                    return matchingRow[userKey].toString().trim();
-                }
-            }
-            // Fallback do ogólnej kolumny "Kolor"
-            const rawCol = matchingRow["Kolor"] || matchingRow["kolor"] || matchingRow["Color"];
-            if (rawCol && rawCol.toString().trim()) {
-                return rawCol.toString().trim();
-            }
-        }
+    const matchingUser = state.users.find(u => u.code === userCode);
+    if (matchingUser && matchingUser.color) {
+        return matchingUser.color;
     }
 
-    // 2. Wbudowana mapa domyślnych kolorów dla podstawowych stanów
-    if (status && DEFAULT_STATUS_COLORS[status]) {
-        return DEFAULT_STATUS_COLORS[status];
-    }
-
-    // 3. Kolor motywu użytkownika
-    return state.currentUser ? state.currentUser.color : "#2a4365";
+    return "#2a4365";
 }
 
 function createSpineElement(game, orientation = "vertical", variant = "") {
@@ -978,8 +1060,9 @@ function createSpineElement(game, orientation = "vertical", variant = "") {
     `;
 
     // Interaktywny tooltip w stylu Minecraft podążający za kursorem myszy
+    const tooltipStatus = game._userName ? `${status} • ${game._userName}` : status;
     spine.addEventListener("mouseenter", (e) => {
-        showMcTooltip(fullTitle, status, e.clientX, e.clientY);
+        showMcTooltip(fullTitle, tooltipStatus, e.clientX, e.clientY);
     });
 
     spine.addEventListener("mousemove", (e) => {

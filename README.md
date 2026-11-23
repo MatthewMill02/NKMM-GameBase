@@ -1,4 +1,4 @@
-# NKMM Baza Gier — Wersja 2.5.3
+# NKMM Baza Gier — Wersja 2.6
 
 Osobisty rejestr rozgrywek, biblioteka gier oraz panel statystyk i porównań graczy. Nowoczesna, w pełni responsywna aplikacja webowa typu serverless, hostowana bezpłatnie na GitHub Pages, komunikująca się bezpośrednio z arkuszem Google Sheets jako bazą danych za pośrednictwem Google Apps Script.
 
@@ -34,38 +34,31 @@ Aplikacja działa w oparciu o architekturę bezserwerową:
 
 ---
 
-## Główne funkcjonalności i zmiany (Wersja 2.5.3)
+## Główne funkcjonalności i zmiany (Wersja 2.6)
 
-1. **Poprawki mobilne i ochrona przed wirtualną klawiaturą**:
-   * **Pozycjonowanie okien modalnych**: Wszystkie pop-upy i modale formularzy na telefonach zostały wyrównane do górnej krawędzi ekranu (`align-items: flex-start`, `margin-top: 4px`), co uniemożliwia ich zasłanianie przez wysuwaną klawiaturę ekranową.
-   * **Blokada przewijania tła**: W trakcie otwarcia okna modalnego (szczegóły gry, edycja, dodawanie, hasła) scroll tła biblioteki jest w całości zablokowany, eliminując niechciane przesunięcia.
-   * **Niezawodne przewijanie strony**: Usunięto błąd blokujący możliwość scrollowania w dół po powrocie z widoku szczegółów gry lub zmianie aktywnej bazy.
+1. **Dynamiczny profil "Forum" (Zbiorcza tablica ostatnich gier)**:
+   * **Ostatnie 50 gier**: Nowy profil "Forum" automatycznie agreguje i sortuje po dacie ostatniej modyfikacji/dodania najświeższe 50 gier ze wszystkich baz użytkowników.
+   * **Złoty wyróżnik wizualny**: Kafelek profilu Forum na ekranie powitalnym posiada dedykowaną złotą ramkę (`#d4af37`), a jego awatar to ikona główna aplikacji (`assets/icon.jpg`).
+   * **Prezentacja właściciela gry**: W widoku Forum każdy rekord/grzbiet na półce odzwierciedla kolor bazy swojego gracza, a w podglądzie (tooltip oraz szczegóły) wyświetlany jest gracz, z którego bazy pochodzi dany wpis.
 
-2. **Obsługa nowych użytkowników i autoryzacja API**:
-   * **Naprawa dodawania nowego gracza**: W żądaniu dodania nowego użytkownika (`addUser`) przekazywany jest parametr aktywnej bazy administratora, co eliminuje błąd braku autoryzacji w Google Apps Script. Nowe bazy tworzą się w arkuszu poprawnie wraz z kompletem kolumn i formuł statystycznych.
-   * **Wsparcie dla awatarów JPG i PNG**: Dodano elastyczną obsługę formatów grafik profilowych (`.jpg`, `.jpeg`, `.png`, `.PNG`), w tym automatyczne dopasowanie dla nowo dodanych graczy (m.in. gracza MF).
-   * **Dynamiczne odświeżanie listy profili**: Ekran wyboru bazy gracza dynamicznie weryfikuje i wyświetla wszystkich użytkowników z Google Sheets.
+2. **Kolorowanie okładek/grzbietów gier z koloru profilu**:
+   * Zgodnie z nowymi wytycznymi kolorystyka grzbietów książek na półkach odpowiada barwie profilu gracza (np. zielony dla MM, czerwony dla NK, granatowy dla MF, złoty dla Forum), tworząc spójny i czytelny motyw wizualny każdej biblioteki.
 
-3. **Uporządkowanie interfejsu**:
-   * **Uproszczony tytuł strony**: Tytuł karty w przeglądarce na stronie głównej to dokładnie `NKMM Baza Gier`.
-   * **Czysty kafelek profilu**: Usunięto zdublowaną, mniejszą etykietę nazwy bazy pod awatarem profilu.
+3. **Dynamiczne statystyki i wykresy dla wszystkich graczy**:
+   * Wyeliminowano hardcodowane porównania graczy (`MM` i `NK`). Wykresy stanów gier, udziału platform, osi czasu ukończeń oraz rozkładu ocen dynamicznie skalują się do dowolnej liczby zarejestrowanych profili (w tym `MF` i kolejnych).
 
-4. **Optymalizacja widoku mobilnego i zwijany panel opcji**:
-   * **Zwijany panel kontrolny**: Obok paska wyszukiwania na telefonie umieszczono przycisk ze zmieniającym się symbolem `<` / `>`, który domyślnie po wejściu na stronę chowa opcje sortowania, grupowania, filtrów oraz zakładek, pozostawiając kompaktowy pasek wyszukiwania.
-   * **Czytelne nagłówki sekcji**: Dodano małe etykiety `SORTOWANIE:`, `GRUPOWANIE:` oraz `FILTRY:`.
-   * **Stabilność pionowa ekranu (Zero Layout Shift)**: Wyeliminowano skakanie ekranu przy zmianie stron i kategorii na telefonie poprzez zdefiniowanie stałej minimalnej wysokości obszaru roboczego biblioteki.
-   * **Ochrona przed podwójnym kliknięciem (Anti-Ghost Click)**: Zabezpieczono przyciski paginacji przed przeskakiwaniem podstron przy szybkim dotknięciu ekranu.
+4. **Optymalizacja startu i ładowanie profili z pamięci**:
+   * Zapis i natychmiastowy odczyt profili z `localStorage` przy starcie aplikacji.
+   * Elegancki wskaźnik ładowania z animowanymi kropkami ("Wczytywanie profili gracza...") podczas sprawdzania aktualizacji kont.
 
-5. **Paginacja stron biblioteki i dynamiczne kategorie**:
-   * Zastąpienie długiego scrollowania stronami biblioteczek:
-     * **Desktop**: 15 biblioteczek na stronę (siatka 5x3 = 120 gier na ekranie bez potrzeby przewijania).
-     * **Laptop (<= 1540px)**: 8 biblioteczek na stronę (siatka 4x2 = 64 gry na ekranie).
-     * **Mobile (<= 768px)**: 6 biblioteczek na ekran (siatka 2x3 = 48 gier) z obsługą gestów swipe.
-   * **Grupowanie jako osobne strony**: przy włączonym grupowaniu każda kategoria stanowi osobną podstronę z natychmiastowym przełączaniem.
-   * **Kaskadowa animacja po przekątnej**: biblioteczki pojawiają się płynnie od lewego górnego rogu w dół.
+5. **Poprawki mobilne i ochrona przed wirtualną klawiaturą (v2.5.3)**:
+   * **Pozycjonowanie okien modalnych**: Pop-upy i modale formularzy na telefonach wyrównane do górnej krawędzi ekranu (`align-items: flex-start`, `margin-top: 4px`), zapobiegając zasłanianiu przez klawiaturę ekranową.
+   * **Blokada przewijania tła**: Blokowanie scrolla tła biblioteki w trakcie otwarcia modali oraz zabezpieczenie przed zacinaniem scrollowania strony.
 
-6. **Modułowa architektura CSS i JS**:
-   * Rozbicie stylów na dedykowane moduły w `css/` oraz logiki aplikacji na moduły ES6 w `js/modules/` (`admin.js`, `api.js`, `charts.js`, `filters.js`, `navigation.js`, `shelves.js`, `state.js`, `sync.js`, `utils.js`).
+6. **Paginacja stron biblioteki i dynamiczne kategorie**:
+   * Paginacja biblioteczek (Desktop: 15 na stronę, Laptop: 8, Mobile: 6) z obsługą gestów swipe.
+   * Grupowanie kategorii jako osobne strony.
+   * Zwijany panel filtrów i opcji na telefonie.
 
 ---
 
@@ -97,12 +90,11 @@ NKMM Baza Gier/
 │   ├── app.js                   # Główny punkt wejściowy aplikacji
 │   └── modules/                 # Moduły ES6 (admin, api, charts, filters, navigation, shelves, state, sync, utils)
 └── resources/
-    ├── PolaczenieGithubPages.gs # Skrypt backendu Google Apps Script
-    └── prompt_aktualizacja_v2.5.txt # Prompt do migracji zmian do bliźniaczych aplikacji
+    └── PolaczenieGithubPages.gs # Skrypt backendu Google Apps Script
 ```
 
 ---
 
 ## Licencja i autorzy
 
-&copy; NKMM Baza Gier | Wersja 2.5.3. Projekt stworzony do użytku prywatnego.
+&copy; NKMM Baza Gier | Wersja 2.6. Projekt stworzony do użytku prywatnego.

@@ -4,13 +4,17 @@
 
 function initSessionCache() {
     try {
-        const cachedUsers = sessionStorage.getItem(CACHE_KEYS.USERS);
-        if (cachedUsers) {
-            const parsed = JSON.parse(cachedUsers);
+        const storedUsers = localStorage.getItem(CACHE_KEYS.USERS) || sessionStorage.getItem(CACHE_KEYS.USERS);
+        if (storedUsers) {
+            const parsed = JSON.parse(storedUsers);
             if (Array.isArray(parsed) && parsed.length > 0) {
                 state.users = parsed;
                 state.cache.users = parsed;
             }
+        }
+
+        if (typeof ensureForumProfile === "function") {
+            ensureForumProfile();
         }
 
         const cachedSettings = sessionStorage.getItem(CACHE_KEYS.SETTINGS);
@@ -80,6 +84,7 @@ function invalidateUsersCache() {
     state.cache.users = null;
     try {
         sessionStorage.removeItem(CACHE_KEYS.USERS);
+        localStorage.removeItem(CACHE_KEYS.USERS);
     } catch (e) {}
 }
 
