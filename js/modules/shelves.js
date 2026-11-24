@@ -1012,23 +1012,43 @@ function hideMcTooltip() {
 function getSpineColorForGame(game) {
     if (!game) return "#2f3e52";
 
-    // Jeśli gra ma przypisany bezpośredni kolor profilu (np. w widoku Forum)
+    // W widoku Forum kolor grzbietu zależy od koloru profilu użytkownika, do którego należy gra
     if (game._userColor) {
         return game._userColor;
     }
 
-    // Kolor profilu aktualnego gracza (nowa zasada: kolor okładek zależy od koloru profilu)
-    if (state.currentUser && state.currentUser.color) {
-        return state.currentUser.color;
-    }
-
+    const status = (game["Stan"] || "").toString().trim().toLowerCase();
     const userCode = state.currentUser ? (state.currentUser.code || "").toString().trim().toUpperCase() : "";
-    const matchingUser = state.users.find(u => u.code === userCode);
-    if (matchingUser && matchingUser.color) {
-        return matchingUser.color;
+
+    // 1. Sprawdzenie w aktualnie załadowanych ustawieniach ze słownika Stanów
+    if (status && state.settings && state.settings.stan && Array.isArray(state.settings.stan.rows)) {
+        const matchingRow = state.settings.stan.rows.find(r => {
+            const rowStan = (r["Stan"] || r["stan"] || "").toString().trim().toLowerCase();
+            return rowStan === status;
+        });
+        if (matchingRow) {
+            // Najpierw szukamy kolumny dedykowanej dla aktualnego gracza (np. "Kolor MM", "Kolor NK")
+            if (userCode) {
+                const userKey = Object.keys(matchingRow).find(k => k.toLowerCase() === `kolor ${userCode.toLowerCase()}`);
+                if (userKey && matchingRow[userKey] && matchingRow[userKey].toString().trim()) {
+                    return matchingRow[userKey].toString().trim();
+                }
+            }
+            // Fallback do ogólnej kolumny "Kolor"
+            const rawCol = matchingRow["Kolor"] || matchingRow["kolor"] || matchingRow["Color"];
+            if (rawCol && rawCol.toString().trim()) {
+                return rawCol.toString().trim();
+            }
+        }
     }
 
-    return "#2a4365";
+    // 2. Wbudowana mapa domyślnych kolorów dla podstawowych stanów
+    if (status && DEFAULT_STATUS_COLORS[status]) {
+        return DEFAULT_STATUS_COLORS[status];
+    }
+
+    // 3. Kolor motywu użytkownika
+    return state.currentUser ? state.currentUser.color : "#2a4365";
 }
 
 function createSpineElement(game, orientation = "vertical", variant = "") {
